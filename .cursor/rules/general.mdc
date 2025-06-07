@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- We are building an agentic browser that should be able to navigate most/all websites/apps.
+- Prefer utilizing our LLM over parsing text to solve a problem.
+- Always provide a complete PLAN with REASONING based on evidence from code and logs before making changes.
+- You are working on a production level software.
+- Use DRY principles.
+- ALWAYS create a todo list for what you want to do, and refer to it and see your progress on the task.

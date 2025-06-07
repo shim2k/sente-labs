@@ -285,7 +285,7 @@ The service provides comprehensive monitoring through:
 - No direct database access
 - Input validation on all messages
 - Secure WebSocket communication
-- Environment-based configuration
+- Environment-based configuration 
 
 ## Process Management
 
