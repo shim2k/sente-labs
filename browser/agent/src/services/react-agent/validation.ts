@@ -55,7 +55,7 @@ export const tools = [
     type: 'function',
     function: {
       name: 'click',
-      description: 'Click an element on the page with multiple fallback selectors',
+      description: 'Click an element on the page with multiple fallback selectors. Selectors must use Playwright syntax (e.g., `:has-text(\"text\")`, `text=\"text\"`, `a[href*=\"text\"]`). DO NOT use jQuery-only pseudo classes such as `:contains()` – they will be rejected.',
       parameters: {
         type: 'object',
         properties: {

@@ -11,7 +11,7 @@ export class MinimizationDOMStrategy {
     this.page = page;
   }
 
-  async getDOMContent(tokenBudget: number = 5000): Promise<string> {
+  async getDOMContent(tokenBudget: number = 10000): Promise<string> {
     if (!this.page) {
       return '<html><body><h1>Error</h1><p>No page available</p></body></html>';
     }
@@ -27,7 +27,7 @@ export class MinimizationDOMStrategy {
       try {
         // Wait for page to be ready before extraction
         await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 });
-        
+
         // Give additional time for dynamic content
         if (attempt === 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -35,78 +35,111 @@ export class MinimizationDOMStrategy {
 
         // Extract and clean DOM in browser with LESS AGGRESSIVE noise removal
         const cleanedHTML = await this.page.evaluate(() => {
-        // Create working copy
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = document.documentElement.outerHTML;
+          // Create working copy containing only the <body> to avoid large <head> CSS/JS noise
+          const tempDiv = document.createElement('div');
+          // If body is missing for some reason, fall back to full document
+          tempDiv.innerHTML = (document.body ? document.body.outerHTML : document.documentElement.outerHTML);
 
-        // CONSERVATIVE CLEANING: Remove only obvious noise elements
-        try {
-          tempDiv.querySelectorAll(`
-            script, style, noscript, meta[name*="viewport"], meta[charset], 
+          // CONSERVATIVE CLEANING: Remove only obvious noise elements
+          try {
+            tempDiv.querySelectorAll(`
+            script, style, template, noscript, meta[name*="viewport"], meta[charset], 
             link[rel="stylesheet"], link[rel="icon"],
             iframe[src*="ads"], iframe[src*="doubleclick"], iframe[src*="google"],
             [class*="ad-banner"], [class*="advertisement"], [id*="google-ad"],
             [style*="display:none"], [style*="display: none"]
           `.replace(/\s+/g, ' ').trim()).forEach(el => el.remove());
-        } catch (e) {
-          // If removal fails, continue with what we have
-          console.warn('DOM cleaning failed:', e);
-        }
-        
-        // Only remove clearly hidden elements (safer approach)
-        try {
-          tempDiv.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"], [hidden]').forEach(el => {
-            try {
-              el.remove();
-            } catch {
-              // If we can't remove it, skip
-            }
-          });
-        } catch (e) {
-          // If batch removal fails, continue
-        }
+          } catch (e) {
+            // If removal fails, continue with what we have
+            console.warn('DOM cleaning failed:', e);
+          }
 
-        // Get the cleaned HTML
-        let html = tempDiv.innerHTML;
-        
-        // AGGRESSIVE TEXT CLEANING: Remove CSS, JSON, and other noise
-        
-        // Remove CSS blocks (be more precise to avoid removing content)
-        html = html.replace(/@import\s+[^;]+;/gi, '');
-        html = html.replace(/@media\s+[^{]+\{(?:[^{}]|\{[^}]*\})*\}/gi, '');
-        html = html.replace(/@keyframes\s+[^{]+\{(?:[^{}]|\{[^}]*\})*\}/gi, '');
-        
-        // Remove vendor prefixes and animations (more precise)
-        html = html.replace(/-webkit-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
-        html = html.replace(/-moz-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
-        html = html.replace(/-ms-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
-        html = html.replace(/(?:animation|transform|transition)[\w-]*\s*:\s*[^;}]+[;}]/gi, '');
-        
-        // Remove complex styling patterns (gradients, filters, shadows)
-        html = html.replace(/background\s*:\s*[^;}]*gradient[^;}]*[;}]/gi, '');
-        html = html.replace(/filter\s*:\s*[^;}]+[;}]/gi, '');
-        html = html.replace(/box-shadow\s*:\s*[^;}]+[;}]/gi, '');
-        
-        // Remove large JSON data blocks (more precise patterns)
-        html = html.replace(/\{data:\{[^}]*entityUrn[^}]*\}[^}]*\}/gi, '');
-        html = html.replace(/\{[^}]*entityUrn:[^}]*\}/gi, '');
-        html = html.replace(/urn:li:[\w:.-]+/gi, '');
-        html = html.replace(/\$type:com\.linkedin\.voyager[\w.-]+/gi, '');
-        
-        // Remove tracking and analytics data
-        html = html.replace(/lixTracking:\{[^}]*\}/gi, '');
-        html = html.replace(/experimentId:\d+/gi, '');
-        html = html.replace(/segmentIndex:\d+/gi, '');
-        
-        // Remove excessive whitespace and newlines
-        html = html.replace(/\s+/g, ' ');
-        html = html.replace(/>\s+</g, '><');
-        
-        // Remove empty attributes and clean up
-        html = html.replace(/\s+(class|id|style)=""/gi, '');
-        html = html.replace(/\s+>/g, '>');
-        
-        return html.trim();
+          // Only remove clearly hidden elements (safer approach)
+          try {
+            tempDiv.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"], [hidden]').forEach(el => {
+              try {
+                el.remove();
+              } catch {
+                // If we can't remove it, skip
+              }
+            });
+          } catch (e) {
+            // If batch removal fails, continue
+          }
+
+          // Get the cleaned HTML
+          let html = tempDiv.innerHTML;
+
+          // Build a compact list of elements that contain visible text (helps LLM locate labels like "Jobs")
+          const elementSummaries: string[] = [];
+          try {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+            let node: Node | null = walker.currentNode;
+            while (node) {
+              const el = node as HTMLElement;
+              const tag = el.tagName?.toLowerCase();
+              if (tag && !['script', 'style', 'template', 'meta', 'link'].includes(tag)) {
+                const text = (el.innerText || el.textContent || '').trim();
+                if (text && text.length < 120) {
+                  // ignore invisible elements
+                  const style = window.getComputedStyle(el);
+                  if (style.display !== 'none' && style.visibility !== 'hidden') {
+                    const idPart = el.id ? `#${el.id}` : '';
+                    const classPart = el.className ? `.${Array.from(el.classList).slice(0, 2).join('.')}` : '';
+                    elementSummaries.push(`${tag}${idPart}${classPart}: "${text.replace(/\s+/g, ' ').slice(0, 80)}"`);
+                    if (elementSummaries.length >= 400) break; // avoid runaway size
+                  }
+                }
+              }
+              node = walker.nextNode();
+            }
+          } catch {
+            // optional summarisation failed – ignore
+          }
+
+          if (elementSummaries.length) {
+            const summaryBlock = `<!--\nELEMENT_SUMMARY_START\n${elementSummaries.join('\n')}\nELEMENT_SUMMARY_END\n-->`;
+            html = summaryBlock + html;
+          }
+
+          // AGGRESSIVE TEXT CLEANING: Remove CSS, JSON, and other noise
+
+          // Remove CSS blocks (be more precise to avoid removing content)
+          html = html.replace(/@import\s+[^;]+;/gi, '');
+          html = html.replace(/@media\s+[^{]+\{(?:[^{}]|\{[^}]*\})*\}/gi, '');
+          html = html.replace(/@keyframes\s+[^{]+\{(?:[^{}]|\{[^}]*\})*\}/gi, '');
+
+          // Remove vendor prefixes and animations (more precise)
+          html = html.replace(/-webkit-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
+          html = html.replace(/-moz-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
+          html = html.replace(/-ms-[\w-]+\s*:\s*[^;}]+[;}]/gi, '');
+          html = html.replace(/(?:animation|transform|transition)[\w-]*\s*:\s*[^;}]+[;}]/gi, '');
+
+          // Remove complex styling patterns (gradients, filters, shadows)
+          html = html.replace(/background\s*:\s*[^;}]*gradient[^;}]*[;}]/gi, '');
+          html = html.replace(/filter\s*:\s*[^;}]+[;}]/gi, '');
+          html = html.replace(/box-shadow\s*:\s*[^;}]+[;}]/gi, '');
+
+          // Remove large JSON data blocks (more precise patterns)
+          html = html.replace(/\{data:\{[^}]*entityUrn[^}]*\}[^}]*\}/gi, '');
+          html = html.replace(/\{[^}]*entityUrn:[^}]*\}/gi, '');
+          html = html.replace(/urn:li:[\w:.-]+/gi, '');
+          html = html.replace(/\$type:com\.linkedin\.voyager[\w.-]+/gi, '');
+
+          // Remove tracking and analytics data
+          html = html.replace(/lixTracking:\{[^}]*\}/gi, '');
+          html = html.replace(/experimentId:\d+/gi, '');
+          html = html.replace(/segmentIndex:\d+/gi, '');
+
+          // Remove excessive whitespace and newlines
+          html = html.replace(/\s+/g, ' ');
+          html = html.replace(/>\s+</g, '><');
+
+          // Remove empty attributes and clean up
+          html = html.replace(/\s+(class|id|style)=""/gi, '');
+          html = html.replace(/\s+>/g, '>');
+
+          return html.trim();
         });
 
         // Validate extraction result
@@ -116,7 +149,7 @@ export class MinimizationDOMStrategy {
 
         // Apply token budget (rough: 4 chars per token)
         const targetLength = tokenBudget * 4;
-        const finalHTML = cleanedHTML.length > targetLength 
+        const finalHTML = cleanedHTML.length > targetLength
           ? cleanedHTML.substring(0, targetLength) + '...'
           : cleanedHTML;
 
@@ -131,12 +164,12 @@ export class MinimizationDOMStrategy {
         return finalHTML;
 
       } catch (error) {
-        logger.info(`DOM extraction attempt ${attempt} failed`, { 
+        logger.info(`DOM extraction attempt ${attempt} failed`, {
           error: error instanceof Error ? error.message : 'Unknown',
           attempt,
           willRetry: attempt < 3
         });
-        
+
         if (attempt === 3) {
           // Final attempt failed, try fallback method
           try {
@@ -147,12 +180,12 @@ export class MinimizationDOMStrategy {
           } catch (fallbackError) {
             logger.error('Fallback DOM extraction also failed', fallbackError);
           }
-          
+
           logger.error('All DOM extraction attempts failed', error);
           return `<!-- Error: ${error instanceof Error ? error.message : 'Unknown'} -->
 <html><body><h1>Extraction Error</h1></body></html>`;
         }
-        
+
         // Wait before retry (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 500 * attempt));
       }
@@ -164,27 +197,27 @@ export class MinimizationDOMStrategy {
 
   private async getFallbackDOM(): Promise<string> {
     if (!this.page) return '';
-    
+
     try {
       // Simple fallback: just get basic document structure
       const simpleHTML = await this.page.evaluate(() => {
         const body = document.body;
         if (!body) return '';
-        
+
         // Get visible text content and basic structure
         const visibleText = body.innerText || body.textContent || '';
         const links = Array.from(document.querySelectorAll('a[href]')).map(a => ({
           text: a.textContent?.trim() || '',
           href: a.getAttribute('href') || ''
         })).filter(link => link.text.length > 0);
-        
+
         let html = '<html><body>';
-        
+
         // Add basic page content
         if (visibleText.length > 0) {
           html += `<div class="content">${visibleText.substring(0, 2000)}</div>`;
         }
-        
+
         // Add important links
         if (links.length > 0) {
           html += '<div class="links">';
@@ -193,11 +226,11 @@ export class MinimizationDOMStrategy {
           });
           html += '</div>';
         }
-        
+
         html += '</body></html>';
         return html;
       });
-      
+
       return simpleHTML;
     } catch (error) {
       logger.error('Fallback DOM extraction failed', error);

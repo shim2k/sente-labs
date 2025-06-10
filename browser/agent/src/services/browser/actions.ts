@@ -21,10 +21,26 @@ export class BrowserActions {
   async clickWithSelectors(selectors: string[]): Promise<ClickResult> {
     if (!this.page) throw new Error('Browser not initialized');
 
+    const sanitizeSelector = (sel: string): string | null => {
+      // Replace jQuery-style :contains('Text') with Playwright :has-text("Text")
+      const replaced = sel.replace(/:contains\((['"])(.*?)\1\)/gi, (_m, _q, txt) => `:has-text("${txt}")`);
+      // If any :contains remains, skip this selector (unsupported)
+      if (/:contains\(/i.test(replaced)) return null;
+      return replaced;
+    };
+
     logger.action(`Attempting to click with ${selectors.length} selectors: ${selectors.join(', ')}`);
 
     for (let i = 0; i < selectors.length; i++) {
-      const selector = selectors[i];
+      const originalSelector = selectors[i];
+      const selector = sanitizeSelector(originalSelector);
+      if (!selector) {
+        logger.action(`Skipping unsupported selector ${i + 1}/${selectors.length}: ${originalSelector}`);
+        if (i === selectors.length - 1) {
+          return { success: false, error: 'No valid selectors after sanitization' };
+        }
+        continue;
+      }
       try {
         logger.action(`Trying selector ${i + 1}/${selectors.length}: ${selector}`);
 
@@ -65,15 +81,36 @@ export class BrowserActions {
   async clickCoordinates(x: number, y: number, button: 'left' | 'right' | 'middle' = 'left'): Promise<void> {
     if (!this.page) throw new Error('Browser not initialized');
 
-    logger.action(`Clicking at coordinates (${x}, ${y}) with ${button} button`);
+    // Retrieve viewport and DPR to adjust coordinates if needed
+    const viewportSize = this.page.viewportSize();
+    const dpr = await this.page.evaluate(() => window.devicePixelRatio || 1);
+
+    let cssX = x;
+    let cssY = y;
+
+    // If coordinates seem to be in screenshot pixel space (scaled), try to map back using scale factor
+    // Heuristic: if viewport width > 0 and incoming x > viewport width, maybe coords are in device pixels
+    if (viewportSize && cssX > viewportSize.width) {
+      const scaleFactor = cssX / viewportSize.width;
+      cssX = Math.round(cssX / scaleFactor);
+      cssY = Math.round(cssY / scaleFactor);
+    }
+
+    // Clamp to viewport bounds
+    if (viewportSize) {
+      cssX = Math.max(1, Math.min(cssX, viewportSize.width - 1));
+      cssY = Math.max(1, Math.min(cssY, viewportSize.height - 1));
+    }
+
+    logger.action(`Clicking at CSS coords (${cssX}, ${cssY}) [input ${x},${y}] DPR=${dpr} button=${button}`);
     
     // Show visual indicator before clicking to provide feedback in the stream
-    await this.showClickIndicator(x, y);
+    await this.showClickIndicator(cssX, cssY);
     
     // Small delay to ensure the indicator is visible in the screenshot stream
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    await this.page.mouse.click(x, y, { button });
+    await this.page.mouse.click(cssX, cssY, { button });
   }
 
   async type(selector: string, text: string): Promise<void> {

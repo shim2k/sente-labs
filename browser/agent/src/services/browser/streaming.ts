@@ -34,6 +34,17 @@ export class BrowserStreaming {
     if (!this.page) return;
 
     try {
+      // Capture CSS viewport and DPR for coordinate mapping
+      const { cssWidth, cssHeight, dpr } = await this.page.evaluate(() => ({
+        cssWidth: window.innerWidth,
+        cssHeight: window.innerHeight,
+        dpr: window.devicePixelRatio || 1
+      }));
+
+      // Store for later use
+      (this.streamingConfig as any).cssViewport = { width: cssWidth, height: cssHeight };
+      (this.streamingConfig as any).dpr = dpr;
+
       // Get CDP session
       this.cdpSession = await this.page.context().newCDPSession(this.page);
 
@@ -56,6 +67,10 @@ export class BrowserStreaming {
         everyNthFrame: frameSkip // Skip frames to achieve target FPS
       });
 
+      // Calculate scaleFactor (image px / css px) if viewport is larger than maxWidth
+      const scaleFactor = cssWidth > this.streamingConfig.maxWidth ? this.streamingConfig.maxWidth / cssWidth : 1;
+      (this.streamingConfig as any).scaleFactor = scaleFactor;
+
       logger.info(`CDP streaming initialized with ${targetFps} FPS target (every ${frameSkip} frames), quality: ${this.streamingConfig.quality}%`);
 
       // Listen for frame events
@@ -77,7 +92,10 @@ export class BrowserStreaming {
               viewport: {
                 width: params.metadata.deviceWidth || this.streamingConfig.maxWidth,
                 height: params.metadata.deviceHeight || this.streamingConfig.maxHeight
-              }
+              },
+              cssViewport: (this.streamingConfig as any).cssViewport,
+              dpr: (this.streamingConfig as any).dpr,
+              scaleFactor: (this.streamingConfig as any).scaleFactor
             }
           });
         }

@@ -67,6 +67,7 @@ export interface BrowserContext {
   currentUrl: string;
   pageTitle: string;
   viewport: { width: number; height: number };
+  dpr?: number;
   cookies?: any[];
   localStorage?: Record<string, string>;
 }
@@ -102,4 +103,12 @@ export interface OutputItem {
   content: string;
   timestamp: number;
   type?: 'text' | 'code' | 'error' | 'success';
+}
+
+export interface ClarificationRequest {
+  confidenceScore: number;
+  reasoning: string;
+  message: string;
+  suggestedQuestions?: string[];
+  timestamp: number;
 } 

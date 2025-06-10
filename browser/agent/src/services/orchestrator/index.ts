@@ -29,6 +29,30 @@ export class OrchestratorService implements IOrchestrator {
   }
 
   async processInstruction(instruction: InstructionMessage): Promise<ResponseMessage> {
+    // Step 0: run clarification check
+    const { clarifyInstruction } = await import('../../utils/clarifier');
+    const historyTexts = this.session.getState().actionsHistory;
+    try {
+      const clarification = await clarifyInstruction(instruction.text, historyTexts);
+      if (clarification.score < 5) {
+        return {
+          id: instruction.id,
+          status: 'needs_clarification',
+          clarificationRequest: {
+            confidenceScore: clarification.score,
+            reasoning: 'Low clarity score',
+            message: `Your task is unclear (score ${clarification.score}/10). Please choose one of the suggestions or rephrase.`,
+            suggestedQuestions: clarification.suggestions,
+            timestamp: Date.now()
+          }
+        } as any;
+      }
+      // overwrite instruction text with improved version if better.
+      instruction.text = clarification.improved;
+    } catch (err) {
+      // If clarifier fails, continue normally
+    }
+
     const startTime = Date.now();
     
     // Log current state before attempting to start processing

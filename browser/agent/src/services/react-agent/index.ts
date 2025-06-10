@@ -300,7 +300,7 @@ export class ReActAgent {
       const analysisResult = await this.screenshotAnalyzer.analyzeScreenshot(
         structuredPrompt.instruction,
         screenshotBuffer,
-        context.viewport
+        { ...(context.viewport as any), dpr: context.dpr || 1 } as any
       );
       screenshotAnalysis = analysisResult.content;
       

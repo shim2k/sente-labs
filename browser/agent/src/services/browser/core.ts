@@ -118,6 +118,14 @@ export class BrowserCore {
       const title = await this.state.page.title();
       const cookies = await this.state.context?.cookies() || [];
 
+      // Get current DPR safely
+      let dpr = 1;
+      try {
+        dpr = await this.state.page.evaluate(() => window.devicePixelRatio || 1);
+      } catch {
+        // ignore
+      }
+
       return {
         currentUrl: url,
         pageTitle: title,
@@ -125,6 +133,7 @@ export class BrowserCore {
           width: config.viewportWidth,
           height: config.viewportHeight
         },
+        dpr,
         cookies
       };
     } catch (error) {
@@ -137,6 +146,7 @@ export class BrowserCore {
           width: config.viewportWidth,
           height: config.viewportHeight
         },
+        dpr: 1,
         cookies: []
       };
     }

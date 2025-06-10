@@ -21,8 +21,13 @@ export class ScreenshotAnalyzer {
       // Use provided viewport or fallback to config defaults
       const actualViewport = viewport || { 
         width: 1280, 
-        height: 720 
-      };
+        height: 720, 
+        dpr: 1,
+        scaleFactor: 1
+      } as any;
+
+      const dprInfo = (actualViewport as any).dpr ? `DevicePixelRatio: ${(actualViewport as any).dpr}` : 'DevicePixelRatio: 1';
+      const scaleInfo = (actualViewport as any).scaleFactor && (actualViewport as any).scaleFactor !== 1 ? `Screenshot scaleFactor: ${(actualViewport as any).scaleFactor} (imagePx = cssPx * scaleFactor)` : '';
       
       const visionPayload = {
         model: 'gpt-4o' as const,
@@ -33,17 +38,15 @@ export class ScreenshotAnalyzer {
             content: [
               {
                 type: 'text' as const,
-                text: `Task: "${instruction}". 
+                text: `Task: "${instruction}".
 
 FAST COORDINATE ANALYSIS - Be concise!
 
-VIEWPORT: ${actualViewport.width}x${actualViewport.height}
+VIEWPORT (CSS px): ${actualViewport.width}x${actualViewport.height}
+${dprInfo}
+${scaleInfo}
 
-Provide ONLY:
-1. Target element coordinates like "Click at (X, Y)"
-2. Brief description of what's at those coordinates
-
-Example: "Click at (640, 360) to select the search result for Gal Shitrit"`
+Return coordinates in CSS pixels ONLY, e.g. "Click at (640, 360) to press the Jobs link"`
               },
               {
                 type: 'image_url' as const,

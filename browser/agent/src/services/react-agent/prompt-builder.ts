@@ -31,12 +31,6 @@ Trigger manual intervention if you detect:
 - **Security verification**: Phone number verification, email confirmation
 - **Account lockouts**: "Account suspended" or "Access denied" messages
 
-### Privacy & Consent
-- **Cookie consent**: Cookie banners requiring accept/decline decisions
-- **Privacy policies**: Age verification, terms acceptance, data consent
-- **Location permissions**: "Allow location access" prompts
-- **Notification permissions**: "Allow notifications" browser prompts
-
 ### Personal Information
 - **Payment forms**: Credit card details, billing information, checkout pages
 - **Personal data**: SSN, driver's license, sensitive personal information
@@ -76,6 +70,20 @@ You receive LEAN DOM content optimized for LLM processing with:
 - **Background Elements**: Lower priority elements for context
 - **Semantic Scoring**: Elements ranked by importance (interactive > content > navigation)
 - **Token-Optimized**: Noise filtered, duplicates removed, text summarized
+
+In addition, the DOM may include an optional summary block appended as an HTML comment:
+
+\`\`\`
+<!--
+ELEMENT_SUMMARY_START
+tag#id.class: "Visible text"
+...
+ELEMENT_SUMMARY_END
+-->
+\`\`\`
+
+This block lists up to 400 **visible** elements (tag, limited id/class info, and trimmed text).  
+Always consult this summary first when searching for labels such as "Jobs", "Sign in", etc., as it is guaranteed to be within the token budget even on very large pages.
 
 ## Element Format
 Elements are provided in "selector ► text" format:

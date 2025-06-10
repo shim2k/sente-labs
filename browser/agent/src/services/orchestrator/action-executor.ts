@@ -120,24 +120,40 @@ export class ActionExecutor {
     // The LLM should use the 'complete' tool when the task is actually done
     // or 'manualIntervention' tool if the page requires manual intervention
     
-    // Only auto-complete for significant content changes from click actions
-    if (action.type === 'click' && changeDetection.hasChanges) {
-      const significantChanges = changeDetection.changeTypes.some(type => 
-        ['content_added', 'navigation', 'form_submission'].includes(type)
-      );
+    // Heuristic-1: URL changed => navigation complete.
+    if (action.type === 'click' && changeDetection.urlChanged) {
+      logger.agent('Task completion detected: URL changed after click', {
+        beforeUrl: changeDetection.beforeUrl,
+        afterUrl: changeDetection.afterUrl,
+        action: action.description
+      });
 
-      if (significantChanges && changeDetection.changeCount >= 3) {
-        logger.agent('Task completion detected: Significant content changes after click', {
-          changeCount: changeDetection.changeCount,
-          changeTypes: changeDetection.changeTypes,
-          action: action.description
-        });
+      return {
+        shouldComplete: true,
+        reason: `Click triggered navigation to ${changeDetection.afterUrl}`
+      };
+    }
 
-        return {
-          shouldComplete: true,
-          reason: `Click action resulted in significant page changes (${changeDetection.changeCount} changes, types: ${changeDetection.changeTypes.join(', ')})`
-        };
-      }
+    // Heuristic-2: Same-URL but massive DOM update (e.g., search results appear, modal opens).
+    // Treat as complete if:
+    //  • at least 30 DOM mutations AND
+    //  • we added or removed content (not just attribute tweaks).
+    if (
+      action.type === 'click' &&
+      changeDetection.hasChanges &&
+      changeDetection.changeCount >= 30 &&
+      changeDetection.changeTypes.some(t => t === 'content_added' || t === 'content_removed')
+    ) {
+      logger.agent('Task completion detected: substantial DOM changes after click with no navigation', {
+        changeCount: changeDetection.changeCount,
+        changeTypes: changeDetection.changeTypes,
+        action: action.description
+      });
+
+      return {
+        shouldComplete: true,
+        reason: `Click caused significant page update (${changeDetection.changeCount} mutations)`
+      };
     }
 
     // Let the LLM continue reasoning for all other cases

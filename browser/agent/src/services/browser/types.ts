@@ -37,6 +37,12 @@ export interface FrameData {
       width: number;
       height: number;
     };
+    cssViewport?: {
+      width: number;
+      height: number;
+    };
+    dpr?: number;
+    scaleFactor?: number;
     [key: string]: any;
   };
   name?: string;
@@ -93,4 +99,13 @@ export interface StreamingInfo {
   mode: string;
   fps?: number;
   quality?: number;
+}
+
+export interface BrowserContext {
+  currentUrl: string;
+  pageTitle: string;
+  viewport: { width: number; height: number };
+  dpr?: number;
+  cookies?: any[];
+  localStorage?: Record<string, string>;
 } 
