@@ -39,14 +39,14 @@ export class WebSocketHandlers {
     });
   }
 
-  private handleMessage(ws: WebSocket, data: WebSocket.Data): void {
+  private async handleMessage(ws: WebSocket, data: WebSocket.Data): Promise<void> {
     try {
       const message: WebSocketMessage = JSON.parse(data.toString());
       console.log('[WS] Received message:', message.type);
       
       const session = this.clients.get(ws);
       if (session) {
-        session.onInstruction(message);
+        await session.onInstruction(message);
       }
     } catch (error) {
       console.error('[WS] Error parsing message:', error);

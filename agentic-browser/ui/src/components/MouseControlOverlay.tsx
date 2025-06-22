@@ -203,6 +203,14 @@ const MouseControlOverlay: React.FC<MouseControlOverlayProps> = ({ children, ena
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
     if (!enabled || !isConnected) return;
     
+    // For printable characters, send as text input instead of key events
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      console.log('⌨️ [KeyboardControl] Sending character as text_input:', { text: event.key });
+      sendKeyboardAction('text_input', undefined, event.key);
+      return;
+    }
+    
     // Don't prevent default for modifier keys to maintain browser functionality
     const isModifierKey = ['Control', 'Shift', 'Alt', 'Meta'].includes(event.key);
     if (!isModifierKey) {

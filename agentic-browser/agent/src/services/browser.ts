@@ -1,9 +1,9 @@
 import { chromium, Browser, BrowserContext, Page, CDPSession } from 'playwright';
+import { DomParser, PageObservation, ElementDescriptor } from './domParser';
 
-export interface PageObservation {
-  content: string;
-  elementMap: Map<number, string>; // id -> selector
-}
+
+
+export { PageObservation, ElementDescriptor };
 
 export class BrowserService {
   private browser: Browser | null = null;
@@ -11,7 +11,11 @@ export class BrowserService {
   private page: Page | null = null;
   private cdpSession: CDPSession | null = null;
   private isStreaming: boolean = false;
-  private elementIdCounter: number = 1;
+  private domParser: DomParser;
+
+  constructor() {
+    this.domParser = new DomParser();
+  }
 
   async initialize(): Promise<void> {
     this.browser = await chromium.launch({
@@ -48,14 +52,44 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    await this.page.click(selector);
+    
+    // Handle special getByRole selectors for international text
+    if (selector.startsWith('getByRole:')) {
+      const [, role, name] = selector.split(':', 3);
+      try {
+        await this.page.getByRole(role as any, { name }).click();
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('strict mode violation')) {
+          await this.page.getByRole(role as any, { name }).first().click();
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      await this.page.click(selector);
+    }
   }
 
   async type(selector: string, text: string): Promise<void> {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    await this.page.fill(selector, text);
+    
+    // Handle special getByRole selectors for international text  
+    if (selector.startsWith('getByRole:')) {
+      const [, role, name] = selector.split(':', 3);
+      try {
+        await this.page.getByRole(role as any, { name }).fill(text);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('strict mode violation')) {
+          await this.page.getByRole(role as any, { name }).first().fill(text);
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      await this.page.fill(selector, text);
+    }
   }
 
   async goBack(): Promise<void> {
@@ -72,79 +106,152 @@ export class BrowserService {
     await this.page.goto(url);
   }
 
+  async enter(): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    await this.page.keyboard.press('Enter');
+  }
+
   async getPageObservation(): Promise<PageObservation> {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
 
-    const elementMap = new Map<number, string>();
-    this.elementIdCounter = 1;
-
-    // Get page title and URL
-    const title = await this.page.title();
-    const url = this.page.url();
-    
-    let content = `**${title}**\nURL: ${url}\n\n`;
-
-    // Get main text content
-    const bodyText = await this.page.locator('body').textContent();
-    if (bodyText && bodyText.trim()) {
-      // Clean up whitespace and limit length
-      const cleanText = bodyText.replace(/\s+/g, ' ').trim().slice(0, 500);
-      content += `Text: "${cleanText}"\n\n`;
-    }
-
-    // Get interactive elements (buttons, links, inputs)
-    const interactiveElements = await this.page.locator('button, a, input, select, textarea').all();
-    
-    if (interactiveElements.length > 0) {
-      content += '**Interactive Elements:**\n';
-      
-      for (const element of interactiveElements.slice(0, 20)) { // Limit to 20 elements
-        try {
-          const tagName = await element.evaluate(el => el.tagName.toLowerCase());
-          const text = await element.textContent();
-          const placeholder = await element.getAttribute('placeholder');
-          const type = await element.getAttribute('type');
-          
-          const displayText = text?.trim() || placeholder || type || tagName;
-          if (displayText && displayText.length > 0) {
-            const selector = await this.generateSelector(element);
-            const id = this.elementIdCounter++;
-            elementMap.set(id, selector);
-            
-            content += `- ${displayText} [${id}]\n`;
-          }
-        } catch (e) {
-          // Skip elements that can't be processed
-          continue;
-        }
-      }
-    }
-
-    return { content, elementMap };
+    return await this.domParser.getPageObservation(this.page);
   }
 
-  private async generateSelector(element: any): Promise<string> {
-    // Try to generate a reliable selector for the element
-    try {
-      const id = await element.getAttribute('id');
-      if (id) return `#${id}`;
-      
-      const role = await element.getAttribute('role');
-      const text = await element.textContent();
-      
-      if (text && text.trim().length > 0 && text.trim().length < 50) {
-        const tagName = await element.evaluate((el: any) => el.tagName.toLowerCase());
-        return `${tagName}:has-text("${text.trim()}")`;
-      }
-      
-      // Fallback to nth-child selector
-      const tagName = await element.evaluate((el: any) => el.tagName.toLowerCase());
-      return `${tagName}`;
-    } catch (e) {
-      return 'button'; // Ultimate fallback
+  // Mouse control methods for manual intervention
+  async mouseMove(x: number, y: number): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
     }
+    await this.page.mouse.move(x, y);
+  }
+
+  async mouseClick(x: number, y: number, button: 'left' | 'right' | 'middle' = 'left', clickCount: number = 1): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    const options: any = { button, clickCount };
+    await this.page.mouse.click(x, y, options);
+  }
+
+  async mouseDown(x: number, y: number, button: 'left' | 'right' | 'middle' = 'left'): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    await this.page.mouse.move(x, y);
+    await this.page.mouse.down({ button });
+  }
+
+  async mouseUp(x: number, y: number, button: 'left' | 'right' | 'middle' = 'left'): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    await this.page.mouse.move(x, y);
+    await this.page.mouse.up({ button });
+  }
+
+  async scroll(x: number, y: number, deltaX: number, deltaY: number): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    await this.page.mouse.wheel(deltaX, deltaY);
+  }
+
+  // Keyboard control methods for manual intervention
+  async keyDown(key: string, modifiers?: string[]): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    // Map common key names to Playwright-compatible names
+    const mappedKey = this.mapKeyName(key);
+    
+    // Apply modifiers first
+    if (modifiers) {
+      for (const modifier of modifiers) {
+        const mappedModifier = this.mapKeyName(modifier);
+        await this.page.keyboard.down(mappedModifier);
+      }
+    }
+    
+    await this.page.keyboard.down(mappedKey);
+  }
+
+  async keyUp(key: string, modifiers?: string[]): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    const mappedKey = this.mapKeyName(key);
+    await this.page.keyboard.up(mappedKey);
+    
+    // Release modifiers
+    if (modifiers) {
+      for (const modifier of modifiers.reverse()) {
+        const mappedModifier = this.mapKeyName(modifier);
+        await this.page.keyboard.up(mappedModifier);
+      }
+    }
+  }
+
+  // Map browser key names to Playwright key names
+  private mapKeyName(key: string): string {
+    const keyMap: { [key: string]: string } = {
+      // Modifier keys
+      'meta': 'Meta',
+      'ctrl': 'Control', 
+      'control': 'Control',
+      'alt': 'Alt',
+      'shift': 'Shift',
+      
+      // Special keys
+      'enter': 'Enter',
+      'return': 'Enter',
+      'space': 'Space',
+      'spacebar': 'Space',
+      'backspace': 'Backspace',
+      'delete': 'Delete',
+      'tab': 'Tab',
+      'escape': 'Escape',
+      'esc': 'Escape',
+      
+      // Arrow keys
+      'arrowup': 'ArrowUp',
+      'arrowdown': 'ArrowDown',
+      'arrowleft': 'ArrowLeft',
+      'arrowright': 'ArrowRight',
+      'up': 'ArrowUp',
+      'down': 'ArrowDown',
+      'left': 'ArrowLeft',
+      'right': 'ArrowRight',
+      
+      // Function keys
+      'f1': 'F1', 'f2': 'F2', 'f3': 'F3', 'f4': 'F4',
+      'f5': 'F5', 'f6': 'F6', 'f7': 'F7', 'f8': 'F8',
+      'f9': 'F9', 'f10': 'F10', 'f11': 'F11', 'f12': 'F12',
+      
+      // Common punctuation that might cause issues
+      'dead': 'Dead', // For dead keys in international keyboards
+    };
+    
+    // Convert to lowercase for lookup, but preserve original case if not found
+    const lowerKey = key.toLowerCase();
+    return keyMap[lowerKey] || key;
+  }
+
+  async typeText(text: string): Promise<void> {
+    if (!this.page) {
+      throw new Error('Browser not initialized');
+    }
+    
+    await this.page.keyboard.type(text);
   }
 
   async startStreaming(onFrame: (frameData: string) => void): Promise<void> {

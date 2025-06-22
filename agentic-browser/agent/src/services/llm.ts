@@ -12,20 +12,47 @@ export interface LLMResponse {
 export class LLMService {
     private openai: OpenAI;
     private systemPrompt: string = `
-        You are an agentic browser that can navigate the web and perform actions on the page. 
+        You are an agentic browser. Your job is to translate user instructions into actions on a playwright chrome browser.
         You can click on elements, navigate to URLs, and go back in browser history. 
         Your job is to translate the user's instructions into actions on the page.
 
-        IMPORTANT: If you think you have completed the task, use the 'stop' action to complete the task with a final answer.
+        PLANNING STRATEGY: When you receive a new instruction, first consider breaking it down into sub-goals using 'branch'. 
+        Use the 'subgoals' array parameter - you can send one step or multiple steps. Always think: "What are all the steps needed to complete this?"
         
         You can use planning actions:
-        - 'branch' to start a sub-goal or explore an alternative approach
-        - 'prune' to abandon the current plan and backtrack to the parent goal
-        - 'note' to record important observations, but use 'stop' to complete the task.
-        - 'stop' to complete the task.
+        - 'branch' to add sub-goal(s) to the Active Subgoals list (use 'subgoals' array - HIGHLY RECOMMENDED for new instructions).
+        - 'complete_subgoal' to mark the current subgoal as COMPLETED and advance to the next one
+        - 'prune' to remove the most recent sub-goal (backtrack from current subgoal approach)
+        - 'note' to record important observations
+        - 'manual_intervention' to request human help (use for login pages, CAPTCHAs, or other human-only tasks)
+        - 'stop' to complete the task
+        
+        SUBGOAL STATUS: Subgoals show their status: no status (pending), (CURRENT) for the one you're working on, (COMPLETED) for finished ones.
+        Use 'complete_subgoal' when you finish the current subgoal to advance to the next one. 
+        Trigger 'complete_subgoal' when it seems like you have completed the current subgoal.
+        
+        IMPORTANT: Goals are user instructions and can be branched into sub-goals, but cannot be pruned/removed. Only sub-goals can be pruned.
+        
+        MANUAL INTERVENTION: Use 'manual_intervention' when you encounter:
+        - Login or authentication pages requiring credentials
+        - CAPTCHA verification systems
+        - Two-factor authentication prompts
+        - Payment forms requiring sensitive information
+        - Any situation where human judgment or input is essential
+        
+        COMPLETION: When you have successfully completed the task or reached the goal, you MUST call the 'stop' tool. 
+        DO NOT provide conversational responses like "let me know what else you'd like me to do" - instead, call 'stop' with your final answer.
+        Examples of when to call 'stop':
+        - Successfully navigated to the requested page/site
+        - Found and provided the requested information
+        - Completed the specified action (search, login, form submission, etc.)
+        - Reached a logical endpoint for the user's instruction
+        
+        ALWAYS use 'stop' instead of asking "what else would you like me to do" or similar conversational responses.
         
         For clicking elements, use the element IDs shown in brackets [number] from the page content.
         For typing text, use the element IDs of input fields.
+        Use the 'enter' action to press the Enter key, commonly needed after typing in search boxes or forms.
     `;
     private tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         {
@@ -69,6 +96,17 @@ export class LLMService {
         {
             type: 'function',
             function: {
+                name: 'enter',
+                description: 'Press the Enter key to submit forms or trigger actions',
+                parameters: {
+                    type: 'object',
+                    properties: {}
+                }
+            }
+        },
+        {
+            type: 'function',
+            function: {
                 name: 'goto',
                 description: 'Navigate to a specific URL',
                 parameters: {
@@ -98,16 +136,19 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'branch',
-                description: 'Start a new sub-plan or explore a sub-goal',
+                description: 'Append one or multiple sub-goals to the current goal to break down complex tasks. The sub-goals will be added to the end of the sub-goals list.',
                 parameters: {
                     type: 'object',
                     properties: {
-                        subgoal: {
-                            type: 'string',
-                            description: 'Description of the sub-goal or alternative approach'
+                        subgoals: {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            },
+                            description: 'Array of sub-goals to add (can be one or multiple steps)'
                         }
                     },
-                    required: ['subgoal']
+                    required: ['subgoals']
                 }
             }
         },
@@ -115,7 +156,18 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'prune',
-                description: 'Abandon the current plan branch and backtrack to parent goal',
+                description: 'Remove the most recent sub-goal (cannot remove user goals)',
+                parameters: {
+                    type: 'object',
+                    properties: {}
+                }
+            }
+        },
+        {
+            type: 'function',
+            function: {
+                name: 'complete_subgoal',
+                description: 'Mark the current subgoal as completed and advance to the next one',
                 parameters: {
                     type: 'object',
                     properties: {}
@@ -142,17 +194,38 @@ export class LLMService {
         {
             type: 'function',
             function: {
+                name: 'manual_intervention',
+                description: 'Request human intervention for tasks that require human input (login pages, CAPTCHAs, etc.)',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        reason: {
+                            type: 'string',
+                            description: 'Explanation of why manual intervention is needed'
+                        },
+                        suggestion: {
+                            type: 'string',
+                            description: 'What the human should do to help'
+                        }
+                    },
+                    required: ['reason', 'suggestion']
+                }
+            }
+        },
+        {
+            type: 'function',
+            function: {
                 name: 'stop',
-                description: 'Complete the task and provide a final answer',
+                description: 'REQUIRED: Call this when the task is complete. Use instead of conversational responses.',
                 parameters: {
                     type: 'object',
                     properties: {
                         answer: {
                             type: 'string',
-                            description: 'The final answer or result (optional)'
+                            description: 'The final answer, result, or confirmation of what was accomplished'
                         }
                     },
-                    required: []
+                    required: ['answer']
                 }
             }
         }

@@ -30,6 +30,12 @@ interface InstructionPanelProps {
     loading?: boolean;
     status?: 'success' | 'error' | 'pending' | 'stopped';
     manuallyCompleted?: boolean;
+    completed?: boolean;
+    response?: {
+      answer?: string;
+      message?: string;
+      [key: string]: any;
+    };
   }[];
   currentInstruction: string;
   setCurrentInstruction: (value: string) => void;
@@ -727,7 +733,11 @@ const InstructionPanel: React.FC<InstructionPanelProps> = ({
                           ? msg.loading
                             ? '🧠 Agent Processing Task'
                             : msg.status === 'success'
-                              ? msg.manuallyCompleted ? '✅ Task Marked Complete' : '✅ Task Completed'
+                              ? msg.completed 
+                                ? '✅ Task Completed by Agent'
+                                : msg.manuallyCompleted 
+                                  ? '✅ Task Marked Complete' 
+                                  : '✅ Task Completed'
                               : msg.status === 'error'
                                 ? '❌ Task Failed'
                                 : msg.status === 'stopped'
@@ -806,6 +816,25 @@ const InstructionPanel: React.FC<InstructionPanelProps> = ({
                       )}
                     </p>
                   </div>
+
+                  {/* Agent completion details */}
+                  {msg.completed && msg.response && (
+                    <div className="relative z-10 mt-3 p-3 bg-green-800/20 border border-green-600/40 rounded-lg">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <svg className="w-4 h-4 text-green-300" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-green-200 mb-2">Agent Result:</h4>
+                          <p className="text-green-100 text-sm leading-relaxed">
+                            {msg.response.answer || msg.response.message || 'Task completed successfully'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Integrated agent log display when loading */}
                   {msg.loading && (
@@ -961,7 +990,7 @@ const InstructionPanel: React.FC<InstructionPanelProps> = ({
                           actionClass = "bg-purple-900/30 border-purple-800";
                         } else if (action === "type") {
                           actionClass = "bg-yellow-900/30 border-yellow-800";
-                        } else if (action === "pressEnter") {
+                        } else if (action === "enter" || action === "pressEnter") {
                           actionClass = "bg-orange-900/30 border-orange-800";
                         }
                         

@@ -118,7 +118,7 @@ const SessionContext = createContext<SessionContextType>({
   outputItems: [],
   isManualInterventionRequired: false,
   manualInterventionDetails: null,
-  dismissManualIntervention: async () => {},
+          dismissManualIntervention: async () => {},
   streamingInfo: null,
 });
 
@@ -355,6 +355,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             } else if (message.type === 'response') {
               console.log('📋 [WebSocket] Instruction response:', message.payload);
               handleAgentResponse(message.payload);
+            } else if (message.type === 'agent_complete') {
+              console.log('✅ [WebSocket] Agent completed task:', message.payload);
+              handleAgentComplete(message.payload);
+            } else if (message.type === 'manual_intervention') {
+              console.log('🚨 [WebSocket] Manual intervention requested:', message.payload);
+              handleManualIntervention(message.payload);
+            } else if (message.type === 'manual_intervention_acknowledged') {
+              console.log('✅ [WebSocket] Manual intervention acknowledged by agent:', message.payload);
             } else if (message.type === 'frame') {
               // Handle screenshot frames from agent
               console.log('📸 [WebSocket] Received frame data');
@@ -458,6 +466,54 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
+  // Helper function to handle agent completion
+  const handleAgentComplete = (payload: any) => {
+    console.log("Agent task completed:", payload);
+    setIsProcessingInstruction(false);
+    
+    // Update the message with completion status
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.loading
+          ? { 
+              ...msg, 
+              loading: false, 
+              status: 'success', 
+              response: payload,
+              text: payload.answer || payload.message || msg.text,
+              completed: true
+            }
+          : msg
+      )
+    );
+  };
+
+  // Helper function to handle manual intervention request from agent
+  const handleManualIntervention = (payload: any) => {
+    console.log("Manual intervention requested by agent:", payload);
+    
+    // Set manual intervention state
+    setIsManualInterventionRequired(true);
+    setManualInterventionDetails({
+      reasoning: payload.reasoning || 'Manual intervention needed',
+      suggestion: payload.suggestion || 'Please take manual action',
+      currentUrl: payload.currentUrl || 'Unknown URL',
+      timestamp: payload.timestamp || Date.now()
+    });
+
+    // Add manual intervention message to the conversation
+    const manualInterventionMessage = {
+      id: `manual_intervention_${payload.timestamp || Date.now()}`,
+      type: 'manual_intervention' as const,
+      text: payload.suggestion || 'Manual intervention required',
+      manualInterventionData: payload,
+      status: 'pending' as const,
+      timestamp: payload.timestamp || Date.now()
+    };
+    
+    setMessages(prev => [...prev, manualInterventionMessage]);
+  };
+
   // Helper function to handle frame data from agent
   const handleFrameData = (payload: any) => {
     try {
@@ -485,6 +541,90 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Function to dismiss manual intervention and notify agent
+  const dismissManualIntervention = async () => {
+    console.log('Dismissing manual intervention notification');
+    
+    // Always clear the local state first
+    setIsManualInterventionRequired(false);
+    setManualInterventionDetails(null);
+    
+    // Update any manual intervention messages to show as completed
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.type === 'manual_intervention' && msg.status !== 'success'
+          ? { ...msg, status: 'success' as const }
+          : msg
+      )
+    );
+    
+    // Notify the agent that manual intervention is complete
+    if (isConnected && sessionId) {
+      try {
+        console.log('Notifying agent that manual intervention is complete');
+        
+        await sendWebSocketCommand('manual_intervention_complete', {
+          sessionId,
+          timestamp: Date.now()
+        });
+        
+        console.log('Manual intervention completion sent to agent');
+        
+      } catch (error) {
+        console.error('Error notifying agent of manual intervention completion:', error);
+      }
+    } else {
+      console.warn('Cannot notify agent of manual intervention completion: not connected or no session');
+    }
+  };
+
+  // Send mouse action to agent
+  const sendMouseAction = async (actionType: string, x: number, y: number, button?: string, clickCount?: number, deltaX?: number, deltaY?: number): Promise<void> => {
+    if (!isConnected || !sessionId) {
+      console.warn('Cannot send mouse action: not connected or no session');
+      return;
+    }
+
+    try {
+      console.log(`🖱️ [Mouse] Sending ${actionType} at (${x}, ${y})${button ? ` button: ${button}` : ''}${clickCount ? ` count: ${clickCount}` : ''}${deltaX || deltaY ? ` delta: (${deltaX}, ${deltaY})` : ''}`);
+      
+      await sendWebSocketCommand('mouse_action', {
+        actionType,
+        x,
+        y,
+        button,
+        clickCount,
+        deltaX,
+        deltaY,
+        sessionId
+      });
+    } catch (error) {
+      console.error('Error sending mouse action:', error);
+    }
+  };
+
+  // Send keyboard action to agent
+  const sendKeyboardAction = async (actionType: string, key?: string, text?: string, modifiers?: string[]): Promise<void> => {
+    if (!isConnected || !sessionId) {
+      console.warn('Cannot send keyboard action: not connected or no session');
+      return;
+    }
+
+    try {
+      console.log(`⌨️ [Keyboard] Sending ${actionType}${key ? ` key: ${key}` : ''}${text ? ` text: "${text}"` : ''}${modifiers ? ` modifiers: ${modifiers.join(', ')}` : ''}`);
+      
+      await sendWebSocketCommand('keyboard_action', {
+        actionType,
+        key,
+        text,
+        modifiers,
+        sessionId
+      });
+    } catch (error) {
+      console.error('Error sending keyboard action:', error);
+    }
+  };
+
   return (
     <SessionContext.Provider
       value={{
@@ -493,8 +633,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setMessages,
         sendInstruction,
         sendClarification: () => {},
-        sendMouseAction: async () => {},
-        sendKeyboardAction: async () => {},
+        sendMouseAction,
+        sendKeyboardAction,
         markTaskCompleted: () => {},
         stopCurrentInstruction: async () => {},
         markInstructionComplete: async () => {},
@@ -506,7 +646,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         outputItems,
         isManualInterventionRequired,
         manualInterventionDetails,
-        dismissManualIntervention: async () => {},
+        dismissManualIntervention,
         streamingInfo: null,
       }}
     >
