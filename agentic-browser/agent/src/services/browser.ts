@@ -1,5 +1,6 @@
 import { chromium, Browser, BrowserContext, Page, CDPSession } from 'playwright';
 import { DomParser, PageObservation, ElementDescriptor } from './domParser';
+import { Logger } from './logger';
 
 
 
@@ -12,9 +13,11 @@ export class BrowserService {
   private cdpSession: CDPSession | null = null;
   private isStreaming: boolean = false;
   private domParser: DomParser;
+  private logger: Logger;
 
-  constructor() {
-    this.domParser = new DomParser();
+  constructor(logger: Logger) {
+    this.logger = logger;
+    this.domParser = new DomParser(logger);
   }
 
   async initialize(): Promise<void> {
@@ -57,16 +60,16 @@ export class BrowserService {
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
       try {
-        await this.page.getByRole(role as any, { name }).click();
+        await this.page.getByRole(role as any, { name }).click({ timeout: 1000 });
       } catch (error) {
         if (error instanceof Error && error.message.includes('strict mode violation')) {
-          await this.page.getByRole(role as any, { name }).first().click();
+          await this.page.getByRole(role as any, { name }).first().click({ timeout: 1000 });
         } else {
           throw error;
         }
       }
     } else {
-      await this.page.click(selector);
+      await this.page.click(selector, { timeout: 1000 });
     }
   }
 
@@ -78,17 +81,42 @@ export class BrowserService {
     // Handle special getByRole selectors for international text  
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
-      try {
-        await this.page.getByRole(role as any, { name }).fill(text);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('strict mode violation')) {
-          await this.page.getByRole(role as any, { name }).first().fill(text);
-        } else {
-          throw error;
+      
+              // Special handling for sliders
+        if (role === 'slider') {
+          try {
+            const locator = this.page.getByRole(role as any, { name });
+            await locator.evaluate((el: any, value: string) => {
+              el.value = value;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }, text, { timeout: 1000 });
+          } catch (error) {
+            if (error instanceof Error && error.message.includes('strict mode violation')) {
+              const locator = this.page.getByRole(role as any, { name }).first();
+              await locator.evaluate((el: any, value: string) => {
+                el.value = value;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+              }, text, { timeout: 1000 });
+            } else {
+              throw error;
+            }
+          }
+      } else {
+        // Regular text input handling
+        try {
+          await this.page.getByRole(role as any, { name }).fill(text, { timeout: 1000 });
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('strict mode violation')) {
+            await this.page.getByRole(role as any, { name }).first().fill(text, { timeout: 1000 });
+          } else {
+            throw error;
+          }
         }
       }
     } else {
-      await this.page.fill(selector, text);
+      await this.page.fill(selector, text, { timeout: 1000 });
     }
   }
 

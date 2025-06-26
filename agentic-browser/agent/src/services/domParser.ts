@@ -1,4 +1,5 @@
 import { Page, Locator } from 'playwright';
+import { Logger } from './logger';
 
 /**
  * High‑level representation of an element in the observation output.
@@ -57,6 +58,11 @@ const clean = (txt: string, max = 120): string => {
  */
 export class DomParser {
     private idCounter = 1;
+    private logger: Logger;
+
+    constructor(logger: Logger) {
+        this.logger = logger;
+    }
 
     async getPageObservation(page: Page): Promise<PageObservation> {
         await page.waitForLoadState('domcontentloaded');
@@ -64,7 +70,7 @@ export class DomParser {
         try {
             await page.waitForLoadState('networkidle', { timeout: 2000 });
         } catch (error) {
-            console.log(`[AGENT] Error waiting for networkidle: ${error}`);
+            this.logger.debug('dom_parser', `Error waiting for networkidle: ${error}`);
         }
 
         debugger;
@@ -79,7 +85,7 @@ export class DomParser {
         const snapshot = await page.accessibility.snapshot({ interestingOnly: true });
 
         if (!snapshot) {
-            console.log(`[AGENT] Could not get snapshot. Falling back to body text.`);
+            this.logger.warn('dom_parser', 'Could not get snapshot. Falling back to body text.');
             // Extremely rare – fallback to raw body text
             const bodyText = await page.textContent('body');
             if (bodyText) content += `\n${clean(bodyText, 400)}\n`;

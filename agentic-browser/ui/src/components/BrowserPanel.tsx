@@ -226,7 +226,7 @@ const URLBar = memo<{ currentUrl: string; pageTitle: string; isConnected: boolea
                   ? 'text-red-300/70 dark:text-red-400/70' 
                   : 'text-gray-500 dark:text-gray-400'
               }`}>
-                {currentUrl}
+                {currentUrl?.slice(0, 80)}
               </span>
             </div>
           ) : (

@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { Logger } from './logger';
 
 export interface LLMResponse {
     content: string;
@@ -11,19 +12,22 @@ export interface LLMResponse {
 
 export class LLMService {
     private openai: OpenAI;
+    private logger: Logger;
     private systemPrompt: string = `
-        You are an agentic browser. Your job is to translate user instructions into actions on a playwright chrome browser.
+        You are a browser agent. Your job is to translate user instructions into actions on a playwright chrome browser.
         You can click on elements, navigate to URLs, and go back in browser history. 
         Your job is to translate the user's instructions into actions on the page.
 
-        PLANNING STRATEGY: When you receive a new instruction, first consider breaking it down into sub-goals using 'branch'. 
-        Use the 'subgoals' array parameter - you can send one step or multiple steps. Always think: "What are all the steps needed to complete this?"
+        PLANNING RULES (very important):
+        - Use 'branch' to break the user goal into sub-goals. Insert them in the order you intend to execute them.
+        - Finish a sub-goal with 'complete_subgoal'.
+
+        Think step-by-step: "What must I do **inside the current sub-goal** next?" and "What is the next sub-goal?"
         
         You can use planning actions:
-        - 'branch' to add sub-goal(s) to the Active Subgoals list (use 'subgoals' array - HIGHLY RECOMMENDED for new instructions).
+        - 'branch' to add / replace the next sub-goal(s) to the Active Subgoals list (use 'subgoals' array - HIGHLY RECOMMENDED for new instructions).
         - 'complete_subgoal' to mark the current subgoal as COMPLETED and advance to the next one
-        - 'prune' to remove the most recent sub-goal (backtrack from current subgoal approach)
-        - 'note' to record important observations
+        - 'note' to record important observations or information, including thoughts on why actions failed.
         - 'manual_intervention' to request human help (use for login pages, CAPTCHAs, or other human-only tasks)
         - 'stop' to complete the task
         
@@ -31,7 +35,7 @@ export class LLMService {
         Use 'complete_subgoal' when you finish the current subgoal to advance to the next one. 
         Trigger 'complete_subgoal' when it seems like you have completed the current subgoal.
         
-        IMPORTANT: Goals are user instructions and can be branched into sub-goals, but cannot be pruned/removed. Only sub-goals can be pruned.
+        IMPORTANT: Sub-goals should be atomic and self-contained. If a sub-goal is not atomic, it should be broken down into smaller sub-goals.
         
         MANUAL INTERVENTION: Use 'manual_intervention' when you encounter:
         - Login or authentication pages requiring credentials
@@ -136,7 +140,7 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'branch',
-                description: 'Append one or multiple sub-goals to the current goal to break down complex tasks. The sub-goals will be added to the end of the sub-goals list.',
+                description: 'Add/replace the next sub-goals with a new set of sub-goals. The sub-goals will be added after the current sub-goal.',
                 parameters: {
                     type: 'object',
                     properties: {
@@ -231,7 +235,8 @@ export class LLMService {
         }
     ];
 
-    constructor() {
+    constructor(logger: Logger) {
+        this.logger = logger;
         this.openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY
         });
@@ -260,7 +265,7 @@ export class LLMService {
             arguments: JSON.parse(call.function.arguments)
         }));
 
-        console.log('LLM response:', { content, toolCalls });
+        this.logger.debug('llm', 'LLM response received', { content, toolCalls });
 
         return {
             content,
