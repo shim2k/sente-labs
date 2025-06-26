@@ -136,7 +136,7 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'branch',
-                description: 'Append one or multiple sub-goals to the current goal to break down complex tasks. The sub-goals will be added to the end of the sub-goals list.',
+                description: 'Add one or multiple sub-goals to break down complex tasks. If there is a CURRENT subgoal, the new subgoals will replace it at its position. The first new subgoal becomes CURRENT.',
                 parameters: {
                     type: 'object',
                     properties: {
@@ -145,7 +145,7 @@ export class LLMService {
                             items: {
                                 type: 'string'
                             },
-                            description: 'Array of sub-goals to add (can be one or multiple steps)'
+                            description: 'Array of sub-goal descriptions to add (each will be created with PENDING status). They will replace the current sub-goal.'
                         }
                     },
                     required: ['subgoals']
@@ -156,7 +156,7 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'prune',
-                description: 'Remove the most recent sub-goal (cannot remove user goals)',
+                description: 'Remove the most recently added sub-goal. If removing the CURRENT subgoal, the previous PENDING subgoal (if any) becomes CURRENT.',
                 parameters: {
                     type: 'object',
                     properties: {}
@@ -167,7 +167,7 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'complete_subgoal',
-                description: 'Mark the current subgoal as completed and advance to the next one',
+                description: 'Mark the CURRENT subgoal as COMPLETED and automatically advance to the next PENDING subgoal (making it CURRENT). Use when you have successfully finished the current step.',
                 parameters: {
                     type: 'object',
                     properties: {}

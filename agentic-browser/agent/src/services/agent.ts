@@ -1,5 +1,6 @@
 import { LLMService, LLMResponse } from './llm';
 import { BrowserService, PageObservation, ElementDescriptor } from './browser';
+import { Planner, PlanContext } from './planner';
 
 // Utility function for retrying operations on specific errors
 async function retryOnError<T>(
@@ -18,19 +19,12 @@ async function retryOnError<T>(
     }
 }
 
-interface PlanContext {
-    goal: string;
-    subGoals: string[];
-    currentSubgoalIndex: number; // -1 means no current subgoal, 0+ is index of current subgoal
-    actions: string[];
-    notes: string[];
-}
 
 export class AgentService {
     private llm: LLMService;
     private browser: BrowserService;
     private sendResponse: (type: string, payload: any) => void;
-    private planStack: PlanContext[] = [];
+    private planner: Planner;
     private isComplete: boolean = false;
     private isPausedForManualIntervention: boolean = false;
     private currentElementMap: Map<number, ElementDescriptor> = new Map();
@@ -39,19 +33,14 @@ export class AgentService {
         this.browser = browser;
         this.llm = new LLMService();
         this.sendResponse = sendResponse;
+        this.planner = new Planner();
     }
 
     async onInstruction(instruction: string): Promise<void> {
         // Always add the new instruction as a new goal to build upon previous context
-        this.planStack.push({
-            goal: instruction,
-            subGoals: [],
-            currentSubgoalIndex: -1, // No current subgoal initially
-            actions: [],
-            notes: []
-        });
+        this.planner.addGoal(instruction);
 
-        console.log(`[AGENT] New instruction added. Plan depth: ${this.planStack.length}`);
+        console.log(`[AGENT] New instruction added. Plan depth: ${this.planner.getPlanDepth()}`);
         console.log(`[AGENT] Current goal: ${instruction}`);
 
         this.isComplete = false;
@@ -61,16 +50,23 @@ export class AgentService {
     }
 
     private buildContext(originalInstruction: string, pageObs: PageObservation): string {
-        const currentPlan = this.getCurrentPlan();
+        const currentPlan = this.planner.getCurrentPlan();
         if (!currentPlan) return originalInstruction;
+
+        const allPlans = this.planner.getAllPlans();
+        const planDepth = this.planner.getPlanDepth();
+        const subgoals = this.planner.getSubgoals();
+        const hasSubgoals = this.planner.hasSubgoals();
+        const recentActions = this.planner.getRecentActions();
+        const notes = this.planner.getCurrentNotes();
 
         let context = '';
 
         // Show the sequence of instructions if we have multiple
-        if (this.planStack.length > 1) {
+        if (planDepth > 1) {
             context += `**Instruction Sequence:**\n`;
-            this.planStack.forEach((plan, index) => {
-                const status = index === this.planStack.length - 1 ? ' (CURRENT)' : ' (COMPLETED)';
+            allPlans.forEach((plan, index) => {
+                const status = index === planDepth - 1 ? ' (CURRENT)' : ' (COMPLETED)';
                 context += `${index + 1}. ${plan.goal}${status}\n`;
             });
             context += '\n';
@@ -80,38 +76,40 @@ export class AgentService {
 
         context += `Current Goal: ${currentPlan.goal}\n`;
 
-        if (currentPlan.subGoals.length > 0) {
+        if (hasSubgoals) {
             context += `Active Subgoals:\n`;
-            currentPlan.subGoals.forEach((subgoal, index) => {
-                let status = '';
-                if (index < currentPlan.currentSubgoalIndex) {
-                    status = ' (COMPLETED)';
-                } else if (index === currentPlan.currentSubgoalIndex) {
-                    status = ' (CURRENT)';
+            subgoals.forEach((subgoal) => {
+                let statusLabel = '';
+                if (subgoal.status === 'completed') {
+                    statusLabel = ' (COMPLETED)';
+                } else if (subgoal.status === 'current') {
+                    statusLabel = ' (CURRENT)';
+                } else {
+                    statusLabel = ' (PENDING)';
                 }
-                context += `  - ${subgoal}${status}\n`;
+                context += `  - ${subgoal.description}${statusLabel}\n`;
             });
         } else {
             context += `⚠️ No subgoals yet - Consider using 'branch' to plan your steps!\n`;
             context += `💡 If the goal is already achieved, use 'stop' with your final answer!\n`;
         }
 
-        if (currentPlan.actions.length > 0) {
+        if (recentActions.length > 0) {
             context += `Recent Actions:\n`;
-            currentPlan.actions.slice(-3).forEach(action => {
+            recentActions.forEach(action => {
                 context += `  - ${action}\n`;
             });
         }
 
-        if (currentPlan.notes.length > 0) {
-            context += `Notes: ${currentPlan.notes.join('; ')}\n`;
+        if (notes.length > 0) {
+            context += `Notes: ${notes.join('; ')}\n`;
         }
 
-        context += `\nPlan Depth: ${this.planStack.length} goals, ${currentPlan.subGoals.length} subgoals (use 'branch' to add sub-goals, 'prune' to remove latest subgoal)\n`;
-        
+        context += `\nPlan Depth: ${planDepth} goals, ${subgoals.length} subgoals (use 'branch' to add sub-goals, 'prune' to remove latest subgoal)\n`;
+
         // Add completion reminder when it seems like task might be done
-        const hasRecentActions = currentPlan.actions.length > 0;
-        const hasNoSubgoals = currentPlan.subGoals.length === 0;
+        const hasRecentActions = recentActions.length > 0;
+        const hasNoSubgoals = !hasSubgoals;
         if (hasRecentActions && hasNoSubgoals) {
             context += `🎯 IMPORTANT: If you've successfully completed the goal "${currentPlan.goal}", call 'stop' with your final answer instead of continuing!\n`;
         }
@@ -124,9 +122,6 @@ export class AgentService {
         return context;
     }
 
-    private getCurrentPlan(): PlanContext | undefined {
-        return this.planStack[this.planStack.length - 1];
-    }
 
     // Method to resume agent processing after manual intervention
     async resumeAfterManualIntervention(): Promise<void> {
@@ -134,12 +129,12 @@ export class AgentService {
             console.log(`[AGENT] Resuming processing after manual intervention completion`);
             this.isPausedForManualIntervention = false;
 
-            this.planStack[this.planStack.length - 1].actions.push('manual_intervention_complete()');
-            this.planStack[this.planStack.length - 1].notes.push('Manual intervention complete. User unblocked the issue.');
+            this.planner.addAction('manual_intervention_complete()');
+            this.planner.addNote('Manual intervention complete. User unblocked the issue.');
 
             // Continue processing if there are still goals and not complete
-            if (!this.isComplete && this.planStack.length > 0) {
-                console.log(`[AGENT] Continuing with current goal: ${this.getCurrentPlan()?.goal}`);
+            if (!this.isComplete && this.planner.hasActivePlans()) {
+                console.log(`[AGENT] Continuing with current goal: ${this.planner.getCurrentPlan()?.goal}`);
                 // Restart the processing loop
                 await this.runProcessingLoop();
             } else {
@@ -152,8 +147,8 @@ export class AgentService {
 
     // Shared processing loop used by both onInstruction and resumeAfterManualIntervention
     private async runProcessingLoop(): Promise<void> {
-        while (!this.isComplete && this.planStack.length > 0 && !this.isPausedForManualIntervention) {
-            const currentPlan = this.getCurrentPlan();
+        while (!this.isComplete && this.planner.hasActivePlans() && !this.isPausedForManualIntervention) {
+            const currentPlan = this.planner.getCurrentPlan();
 
             // Get current page observation (with navigation retry)
             const obsStart = Date.now();
@@ -183,7 +178,7 @@ export class AgentService {
             if (llmResponse.content) {
                 this.sendResponse('agent_response', {
                     response: llmResponse.content,
-                    planDepth: this.planStack.length,
+                    planDepth: this.planner.getPlanDepth(),
                     currentGoal: currentPlan?.goal
                 });
             }
@@ -194,32 +189,34 @@ export class AgentService {
             console.log(`[AGENT] Processing paused - waiting for manual intervention completion`);
         } else if (this.isComplete) {
             console.log(`[AGENT] Processing complete`);
-        } else if (this.planStack.length === 0) {
+        } else if (!this.planner.hasActivePlans()) {
             console.log(`[AGENT] Processing stopped - no more goals`);
         }
     }
 
     private async toolActivation(actionName: string, args: any): Promise<void> {
-        const currentPlan = this.getCurrentPlan();
-
         try {
             switch (actionName) {
                 case 'branch':
                     if (args.subgoals && Array.isArray(args.subgoals)) {
                         const newSubgoals = args.subgoals.filter((sg: string) => sg && sg.trim());
                         if (newSubgoals.length > 0) {
-                            const wasEmpty = currentPlan?.subGoals.length === 0;
-                            currentPlan?.subGoals.push(...newSubgoals);
-                            
-                            // If this was the first subgoal(s) added, start working on the first one
-                            if (wasEmpty && currentPlan) {
-                                currentPlan.currentSubgoalIndex = 0;
-                                console.log(`[AGENT] Started working on first subgoal: ${currentPlan.subGoals[0]}`);
+                            const wasEmpty = !this.planner.hasSubgoals();
+
+                            if (this.planner.addSubgoals(newSubgoals)) {
+                                if (wasEmpty) {
+                                    console.log(`[AGENT] Started working on first subgoal: ${newSubgoals[0]}`);
+                                }
+
+                                console.log(`[AGENT] Branched to ${newSubgoals.length} subgoal${newSubgoals.length > 1 ? 's' : ''}: [${newSubgoals.join(', ')}]`);
+
+                                const allSubgoals = this.planner.getSubgoalDescriptions();
+                                console.log(`[AGENT] All current subgoals: [${allSubgoals.join(', ')}]`);
+
+                                this.planner.addAction(`branch([${newSubgoals.join(', ')}])`);
+                            } else {
+                                console.log(`[AGENT] Failed to add subgoals`);
                             }
-                            
-                            console.log(`[AGENT] Branched to ${newSubgoals.length} subgoal${newSubgoals.length > 1 ? 's' : ''}: [${newSubgoals.join(', ')}]`);
-                            console.log(`[AGENT] All current subgoals: [${currentPlan?.subGoals.join(', ')}]`);
-                            currentPlan?.actions.push(`branch([${newSubgoals.join(', ')}])`);
                         } else {
                             console.log(`[AGENT] Branch called but no valid subgoals provided`);
                         }
@@ -229,46 +226,46 @@ export class AgentService {
                     break;
 
                 case 'prune':
-                    if (currentPlan && currentPlan.subGoals.length > 0) {
-                        const prunedSubgoal = currentPlan.subGoals.pop();
-                        console.log(`[AGENT] Pruned subgoal: ${prunedSubgoal}`);
-                        console.log(`[AGENT] Remaining subgoals: [${currentPlan.subGoals.join(', ')}]`);
-                        currentPlan.actions.push(`prune(${prunedSubgoal})`);
+                    const removedSubgoal = this.planner.removeLastSubgoal();
+                    if (removedSubgoal) {
+                        console.log(`[AGENT] Pruned subgoal: ${removedSubgoal}`);
+                        const remainingSubgoals = this.planner.getSubgoalDescriptions();
+                        console.log(`[AGENT] Remaining subgoals: [${remainingSubgoals.join(', ')}]`);
+                        this.planner.addAction(`prune(${removedSubgoal})`);
                     } else {
+                        const currentPlan = this.planner.getCurrentPlan();
                         console.log(`[AGENT] Cannot prune: no subgoals to remove from goal "${currentPlan?.goal}"`);
                     }
                     break;
 
                 case 'complete_subgoal':
-                    if (currentPlan && currentPlan.subGoals.length > 0) {
-                        if (currentPlan.currentSubgoalIndex < currentPlan.subGoals.length - 1) {
-                            currentPlan.currentSubgoalIndex++;
-                            const currentSubgoal = currentPlan.subGoals[currentPlan.currentSubgoalIndex];
-                            console.log(`[AGENT] Completed previous subgoal, now working on: ${currentSubgoal}`);
-                            currentPlan.actions.push(`complete_subgoal() → now on: ${currentSubgoal}`);
-                        } else if (currentPlan.currentSubgoalIndex === currentPlan.subGoals.length - 1) {
-                            currentPlan.currentSubgoalIndex = currentPlan.subGoals.length; // All completed
+                    const result = this.planner.completeCurrentSubgoal();
+                    if (result.completed) {
+                        if (result.next) {
+                            console.log(`[AGENT] Completed previous subgoal, now working on: ${result.next}`);
+                            this.planner.addAction(`complete_subgoal() → now on: ${result.next}`);
+                        } else if (result.allCompleted) {
                             console.log(`[AGENT] Completed final subgoal! All subgoals done.`);
-                            currentPlan.actions.push(`complete_subgoal() → all subgoals completed`);
-                        } else {
-                            console.log(`[AGENT] No current subgoal to complete`);
+                            this.planner.addAction(`complete_subgoal() → all subgoals completed`);
                         }
                     } else {
-                        console.log(`[AGENT] Cannot complete subgoal: no subgoals exist`);
+                        console.log(`[AGENT] No current subgoal to complete`);
                     }
                     break;
 
                 case 'note':
                     const note = args.message || args.content || '';
-                    currentPlan?.notes.push(note);
-                    console.log(`[AGENT] Noted: ${note}`);
-                    currentPlan?.actions.push(`note(${note})`);
+                    if (this.planner.addNote(note)) {
+                        console.log(`[AGENT] Noted: ${note}`);
+                        this.planner.addAction(`note(${note})`);
+                    }
                     break;
 
                 case 'manual_intervention':
                     const reason = args.reason || 'Manual intervention required';
                     const suggestion = args.suggestion || 'Please complete the required action in the browser';
-                    const currentUrl = await this.browser.getPage()?.url() || 'Unknown URL';
+                    const page = this.browser.getPage();
+                    const currentUrl = page ? await page.url() : 'Unknown URL';
 
                     console.log(`[AGENT] Manual intervention requested: ${reason}`);
                     console.log(`[AGENT] Suggestion: ${suggestion}`);
@@ -284,7 +281,7 @@ export class AgentService {
                         timestamp: Date.now()
                     });
 
-                    currentPlan?.actions.push(`manual_intervention("${reason}")`);
+                    this.planner.addAction(`manual_intervention("${reason}")`);
                     break;
 
                 case 'stop':
@@ -293,32 +290,33 @@ export class AgentService {
                     console.log(`[AGENT] Stopped: ${finalAnswer}`);
                     this.sendResponse('agent_complete', {
                         answer: finalAnswer,
-                        planSummary: this.planStack.map(p => ({ goal: p.goal, actions: p.actions }))
+                        planSummary: this.planner.getSummary()
                     });
                     break;
 
                 case 'click':
                     if (args.elementId && this.currentElementMap.has(args.elementId)) {
                         const elementDesc = this.currentElementMap.get(args.elementId)!;
-                        const beforeUrl = await this.browser.getPage()?.url();
+                        const page = this.browser.getPage();
+                        const beforeUrl = page ? await page.url() : undefined;
                         await this.browser.click(elementDesc.selector);
 
                         // Check if page changed after click
                         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for potential navigation
-                        const afterUrl = await this.browser.getPage()?.url();
+                        const afterUrl = page ? await page.url() : undefined;
                         const pageChanged = beforeUrl !== afterUrl;
 
                         console.log(`[AGENT] Clicked element ${args.elementId}: ${elementDesc.name} (${elementDesc.selector})`);
 
                         if (pageChanged) {
-                            currentPlan?.actions.push(`click("${elementDesc.name}") → navigated to new page`);
+                            this.planner.addAction(`click("${elementDesc.name}") → navigated to new page`);
                         } else {
-                            currentPlan?.actions.push(`click("${elementDesc.name}") → success`);
+                            this.planner.addAction(`click("${elementDesc.name}") → success`);
                         }
                     } else if (args.selector) {
                         await this.browser.click(args.selector);
                         console.log(`[AGENT] Clicked selector: ${args.selector}`);
-                        currentPlan?.actions.push(`click(${args.selector})`);
+                        this.planner.addAction(`click(${args.selector})`);
                     } else {
                         throw new Error('No valid elementId or selector provided for click');
                     }
@@ -329,11 +327,11 @@ export class AgentService {
                         const elementDesc = this.currentElementMap.get(args.elementId)!;
                         await this.browser.type(elementDesc.selector, args.text);
                         console.log(`[AGENT] Typed "${args.text}" into element ${args.elementId}: ${elementDesc.name} (${elementDesc.selector})`);
-                        currentPlan?.actions.push(`type("${elementDesc.name}", "${args.text}")`);
+                        this.planner.addAction(`type("${elementDesc.name}", "${args.text}")`);
                     } else if (args.selector) {
                         await this.browser.type(args.selector, args.text);
                         console.log(`[AGENT] Typed "${args.text}" into selector: ${args.selector}`);
-                        currentPlan?.actions.push(`type(${args.selector}, "${args.text}")`);
+                        this.planner.addAction(`type(${args.selector}, "${args.text}")`);
                     } else {
                         throw new Error('No valid elementId or selector provided for type');
                     }
@@ -342,19 +340,19 @@ export class AgentService {
                 case 'enter':
                     await this.browser.enter();
                     console.log(`[AGENT] Pressed Enter key`);
-                    currentPlan?.actions.push('enter()');
+                    this.planner.addAction('enter()');
                     break;
 
                 case 'goto':
                     await this.browser.goto(args.url);
                     console.log(`[AGENT] Navigated to: ${args.url}`);
-                    currentPlan?.actions.push(`goto(${args.url})`);
+                    this.planner.addAction(`goto(${args.url})`);
                     break;
 
                 case 'goBack':
                     await this.browser.goBack();
                     console.log(`[AGENT] Went back`);
-                    currentPlan?.actions.push('goBack()');
+                    this.planner.addAction('goBack()');
                     break;
 
                 default:
@@ -363,7 +361,8 @@ export class AgentService {
             }
         } catch (error) {
             console.error(`[AGENT] Error executing ${actionName}:`, error);
-            currentPlan?.actions.push(`error(${actionName})`);
+            debugger
+            this.planner.addAction(`error(${actionName}): element id: ${args.elementId}, error: ${error instanceof Error ? error.message?.slice(0, 80) : 'Unknown error'}`);
             this.sendResponse('agent_error', {
                 action: actionName,
                 error: error instanceof Error ? error.message : 'Unknown error'

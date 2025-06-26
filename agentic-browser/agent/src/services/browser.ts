@@ -40,7 +40,7 @@ export class BrowserService {
     this.context = await this.browser.newContext();
     this.page = await this.context.newPage();
     this.cdpSession = await this.page.context().newCDPSession(this.page);
-    
+
     await this.page.goto('https://www.google.com');
   }
 
@@ -52,21 +52,21 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     // Handle special getByRole selectors for international text
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
       try {
-        await this.page.getByRole(role as any, { name }).click();
+        await this.page.getByRole(role as any, { name }).click({ timeout: 1000 });
       } catch (error) {
         if (error instanceof Error && error.message.includes('strict mode violation')) {
-          await this.page.getByRole(role as any, { name }).first().click();
+          await this.page.getByRole(role as any, { name }).first().click({ timeout: 1000 })
         } else {
           throw error;
         }
       }
     } else {
-      await this.page.click(selector);
+      await this.page.click(selector, { timeout: 1000 });
     }
   }
 
@@ -74,12 +74,12 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     // Handle special getByRole selectors for international text  
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
       try {
-        await this.page.getByRole(role as any, { name }).fill(text);
+        await this.page.getByRole(role as any, { name }).fill(text, { timeout: 1000 });
       } catch (error) {
         if (error instanceof Error && error.message.includes('strict mode violation')) {
           await this.page.getByRole(role as any, { name }).first().fill(text);
@@ -88,7 +88,7 @@ export class BrowserService {
         }
       }
     } else {
-      await this.page.fill(selector, text);
+      await this.page.fill(selector, text, { timeout: 1000 });
     }
   }
 
@@ -133,7 +133,7 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     const options: any = { button, clickCount };
     await this.page.mouse.click(x, y, options);
   }
@@ -142,7 +142,7 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     await this.page.mouse.move(x, y);
     await this.page.mouse.down({ button });
   }
@@ -151,7 +151,7 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     await this.page.mouse.move(x, y);
     await this.page.mouse.up({ button });
   }
@@ -160,7 +160,7 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     await this.page.mouse.wheel(deltaX, deltaY);
   }
 
@@ -169,10 +169,10 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     // Map common key names to Playwright-compatible names
     const mappedKey = this.mapKeyName(key);
-    
+
     // Apply modifiers first
     if (modifiers) {
       for (const modifier of modifiers) {
@@ -180,7 +180,7 @@ export class BrowserService {
         await this.page.keyboard.down(mappedModifier);
       }
     }
-    
+
     await this.page.keyboard.down(mappedKey);
   }
 
@@ -188,10 +188,10 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     const mappedKey = this.mapKeyName(key);
     await this.page.keyboard.up(mappedKey);
-    
+
     // Release modifiers
     if (modifiers) {
       for (const modifier of modifiers.reverse()) {
@@ -206,11 +206,11 @@ export class BrowserService {
     const keyMap: { [key: string]: string } = {
       // Modifier keys
       'meta': 'Meta',
-      'ctrl': 'Control', 
+      'ctrl': 'Control',
       'control': 'Control',
       'alt': 'Alt',
       'shift': 'Shift',
-      
+
       // Special keys
       'enter': 'Enter',
       'return': 'Enter',
@@ -221,7 +221,7 @@ export class BrowserService {
       'tab': 'Tab',
       'escape': 'Escape',
       'esc': 'Escape',
-      
+
       // Arrow keys
       'arrowup': 'ArrowUp',
       'arrowdown': 'ArrowDown',
@@ -231,16 +231,16 @@ export class BrowserService {
       'down': 'ArrowDown',
       'left': 'ArrowLeft',
       'right': 'ArrowRight',
-      
+
       // Function keys
       'f1': 'F1', 'f2': 'F2', 'f3': 'F3', 'f4': 'F4',
       'f5': 'F5', 'f6': 'F6', 'f7': 'F7', 'f8': 'F8',
       'f9': 'F9', 'f10': 'F10', 'f11': 'F11', 'f12': 'F12',
-      
+
       // Common punctuation that might cause issues
       'dead': 'Dead', // For dead keys in international keyboards
     };
-    
+
     // Convert to lowercase for lookup, but preserve original case if not found
     const lowerKey = key.toLowerCase();
     return keyMap[lowerKey] || key;
@@ -250,7 +250,7 @@ export class BrowserService {
     if (!this.page) {
       throw new Error('Browser not initialized');
     }
-    
+
     await this.page.keyboard.type(text);
   }
 
@@ -261,7 +261,7 @@ export class BrowserService {
 
     await this.cdpSession.send('Page.enable');
     await this.cdpSession.send('Runtime.enable');
-    
+
     this.cdpSession.on('Page.screencastFrame', (event: any) => {
       onFrame(event.data);
       this.cdpSession?.send('Page.screencastFrameAck', { sessionId: event.sessionId });
