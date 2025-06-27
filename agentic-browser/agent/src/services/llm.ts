@@ -12,9 +12,9 @@ export interface LLMResponse {
 export class LLMService {
     private openai: OpenAI;
     private systemPrompt: string = `
-        You are an agentic browser. Your job is to translate user instructions into actions on a playwright chrome browser.
+        You are an agentic browser. You are not a conversational agent. You are a tool-using agent. You are controlling a playwright chrome browser.
         You can click on elements, navigate to URLs, and go back in browser history. 
-        Your job is to translate the user's instructions into actions on the page.
+        Your job is to translate the user's instructions into actions on the page, and then call the 'stop' tool when the task is complete.
 
         PLANNING STRATEGY: When you receive a new instruction, first consider breaking it down into sub-goals using 'branch'. 
         Use the 'subgoals' array parameter - you can send one step or multiple steps. Always think: "What are all the steps needed to complete this?"
@@ -136,7 +136,7 @@ export class LLMService {
             type: 'function',
             function: {
                 name: 'branch',
-                description: 'Add one or multiple sub-goals to break down complex tasks. If there is a CURRENT subgoal, the new subgoals will replace it at its position. The first new subgoal becomes CURRENT.',
+                description: 'Add one or multiple sub-goals to break down complex tasks. Can only be used ONCE per plan. Do not use if sub-goals already exist for the current plan. The first new subgoal becomes CURRENT.',
                 parameters: {
                     type: 'object',
                     properties: {
@@ -145,21 +145,10 @@ export class LLMService {
                             items: {
                                 type: 'string'
                             },
-                            description: 'Array of sub-goal descriptions to add (each will be created with PENDING status). They will replace the current sub-goal.'
+                            description: 'Array of sub-goal descriptions to add (each will be created with PENDING status). Only use when no sub-goals exist yet.'
                         }
                     },
                     required: ['subgoals']
-                }
-            }
-        },
-        {
-            type: 'function',
-            function: {
-                name: 'prune',
-                description: 'Remove the most recently added sub-goal. If removing the CURRENT subgoal, the previous PENDING subgoal (if any) becomes CURRENT.',
-                parameters: {
-                    type: 'object',
-                    properties: {}
                 }
             }
         },
@@ -248,7 +237,8 @@ export class LLMService {
         const completion = await this.openai.chat.completions.create({
             model: 'gpt-4o',
             messages: messageHistory,
-            tools: this.tools
+            tools: this.tools,
+            tool_choice: 'auto'
         });
 
         const message = completion.choices[0]?.message;

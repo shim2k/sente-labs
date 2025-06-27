@@ -57,16 +57,30 @@ export class BrowserService {
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
       try {
-        await this.page.getByRole(role as any, { name }).click({ timeout: 1000 });
+        await this.page.getByRole(role as any, { name }).click({ timeout: 3000 });
       } catch (error) {
         if (error instanceof Error && error.message.includes('strict mode violation')) {
-          await this.page.getByRole(role as any, { name }).first().click({ timeout: 1000 })
+          await this.page.getByRole(role as any, { name }).first().click({ timeout: 3000 });
+        } else if (error instanceof Error && error.message.includes('intercepts pointer events')) {
+          // Try alternative click strategies for complex dropdowns
+          const locator = this.page.getByRole(role as any, { name });
+          try {
+            // Try force click to bypass pointer event interception
+            await locator.click({ force: true, timeout: 3000 });
+          } catch (forceError) {
+            // Try selecting the option directly for dropdowns
+            if (role === 'combobox') {
+              await locator.selectOption({ label: name });
+            } else {
+              throw error;
+            }
+          }
         } else {
           throw error;
         }
       }
     } else {
-      await this.page.click(selector, { timeout: 1000 });
+      await this.page.click(selector, { timeout: 3000 });
     }
   }
 
@@ -79,16 +93,16 @@ export class BrowserService {
     if (selector.startsWith('getByRole:')) {
       const [, role, name] = selector.split(':', 3);
       try {
-        await this.page.getByRole(role as any, { name }).fill(text, { timeout: 1000 });
+        await this.page.getByRole(role as any, { name }).fill(text, { timeout: 3000 });
       } catch (error) {
         if (error instanceof Error && error.message.includes('strict mode violation')) {
-          await this.page.getByRole(role as any, { name }).first().fill(text);
+          await this.page.getByRole(role as any, { name }).first().fill(text, { timeout: 3000 });
         } else {
           throw error;
         }
       }
     } else {
-      await this.page.fill(selector, text, { timeout: 1000 });
+      await this.page.fill(selector, text, { timeout: 3000 });
     }
   }
 

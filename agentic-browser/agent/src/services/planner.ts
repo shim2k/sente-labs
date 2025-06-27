@@ -43,7 +43,7 @@ export class Planner {
         return this.planStack.length > 0;
     }
 
-    // Add subgoals to the current plan
+    // Add subgoals to the current plan (can only be called once)
     addSubgoals(subgoalDescriptions: string[]): boolean {
         const currentPlan = this.getCurrentPlan();
         if (!currentPlan) return false;
@@ -51,61 +51,15 @@ export class Planner {
         const validDescriptions = subgoalDescriptions.filter(desc => desc && desc.trim());
         if (validDescriptions.length === 0) return false;
 
-        const wasEmpty = currentPlan.subGoals.length === 0;
-        
-        if (wasEmpty) {
-            // No existing subgoals - just add the new ones
-            const newSubgoals: Subgoal[] = validDescriptions.map((description, index) => ({
-                description: description.trim(),
-                status: index === 0 ? 'current' : 'pending'
-            }));
-            currentPlan.subGoals.push(...newSubgoals);
-        } else {
-            // Find the current subgoal and replace it with new subgoals
-            const currentIndex = currentPlan.subGoals.findIndex(sg => sg.status === 'current');
-            
-            if (currentIndex >= 0) {
-                // Create new subgoals - first one becomes current
-                const newSubgoals: Subgoal[] = validDescriptions.map((description, index) => ({
-                    description: description.trim(),
-                    status: index === 0 ? 'current' : 'pending'
-                }));
-                
-                // Replace the current subgoal with the new subgoals at its position
-                currentPlan.subGoals.splice(currentIndex, 1, ...newSubgoals);
-            } else {
-                // No current subgoal found - add at the end
-                const newSubgoals: Subgoal[] = validDescriptions.map((description, index) => ({
-                    description: description.trim(),
-                    status: index === 0 ? 'current' : 'pending'
-                }));
-                currentPlan.subGoals.push(...newSubgoals);
-            }
-        }
+        // Create subgoals - first one becomes current
+        currentPlan.subGoals = validDescriptions.map((description, index) => ({
+            description: description.trim(),
+            status: index === 0 ? 'current' : 'pending'
+        }));
         
         return true;
     }
 
-    // Remove the last subgoal from the current plan
-    removeLastSubgoal(): string | null {
-        const currentPlan = this.getCurrentPlan();
-        if (!currentPlan || currentPlan.subGoals.length === 0) {
-            return null;
-        }
-
-        const removedSubgoal = currentPlan.subGoals.pop();
-        if (!removedSubgoal) return null;
-
-        // If we removed the current subgoal, make the previous one current
-        if (removedSubgoal.status === 'current' && currentPlan.subGoals.length > 0) {
-            const lastSubgoal = currentPlan.subGoals[currentPlan.subGoals.length - 1];
-            if (lastSubgoal.status === 'pending') {
-                lastSubgoal.status = 'current';
-            }
-        }
-
-        return removedSubgoal.description;
-    }
 
     // Complete the current subgoal and move to the next one
     completeCurrentSubgoal(): { completed: string | null; next: string | null; allCompleted: boolean } {

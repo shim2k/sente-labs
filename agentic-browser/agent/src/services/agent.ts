@@ -28,6 +28,7 @@ export class AgentService {
     private isComplete: boolean = false;
     private isPausedForManualIntervention: boolean = false;
     private currentElementMap: Map<number, ElementDescriptor> = new Map();
+    private loopIteration: number = 0;
 
     constructor(browser: BrowserService, sendResponse: (type: string, payload: any) => void) {
         this.browser = browser;
@@ -44,6 +45,7 @@ export class AgentService {
         console.log(`[AGENT] Current goal: ${instruction}`);
 
         this.isComplete = false;
+        this.loopIteration = 0; // Reset loop counter for new instruction
 
         // Start the main processing loop
         await this.runProcessingLoop();
@@ -102,10 +104,14 @@ export class AgentService {
         }
 
         if (notes.length > 0) {
-            context += `Notes: ${notes.join('; ')}\n`;
+            context += `Recent Notes:\n`;
+            notes.forEach(note => {
+                context += `  - ${note}\n`;
+            });
         }
 
-        context += `\nPlan Depth: ${planDepth} goals, ${subgoals.length} subgoals (use 'branch' to add sub-goals, 'prune' to remove latest subgoal)\n`;
+        context += `\nPlan Depth: ${planDepth} goals, ${subgoals.length} subgoals (use 'branch' once per plan to add sub-goals)\n`;
+        context += `Current Iteration ID: ${this.loopIteration}\n`;
 
         // Add completion reminder when it seems like task might be done
         const hasRecentActions = recentActions.length > 0;
@@ -118,10 +124,15 @@ export class AgentService {
         // Include page observation
         context += `**Current Page:**\n${pageObs.content}\n`;
         context += `\nUse element IDs [number] for click actions (e.g., click with elementId: 1)`;
+        context += `\nUse the current iteration ID to track actions (e.g., [Loop ID:${this.loopIteration}] click(1))`;
 
         return context;
     }
 
+    // Helper method to add actions with iteration ID prefix
+    private addActionWithIteration(action: string): void {
+        this.planner.addAction(`[Loop ID:${this.loopIteration}] ${action}`);
+    }
 
     // Method to resume agent processing after manual intervention
     async resumeAfterManualIntervention(): Promise<void> {
@@ -129,7 +140,7 @@ export class AgentService {
             console.log(`[AGENT] Resuming processing after manual intervention completion`);
             this.isPausedForManualIntervention = false;
 
-            this.planner.addAction('manual_intervention_complete()');
+            this.addActionWithIteration('manual_intervention_complete()');
             this.planner.addNote('Manual intervention complete. User unblocked the issue.');
 
             // Continue processing if there are still goals and not complete
@@ -148,6 +159,8 @@ export class AgentService {
     // Shared processing loop used by both onInstruction and resumeAfterManualIntervention
     private async runProcessingLoop(): Promise<void> {
         while (!this.isComplete && this.planner.hasActivePlans() && !this.isPausedForManualIntervention) {
+            this.loopIteration++; // Increment loop counter
+            console.log(`[AGENT] Starting loop iteration ${this.loopIteration}`);
             const currentPlan = this.planner.getCurrentPlan();
 
             // Get current page observation (with navigation retry)
@@ -213,7 +226,7 @@ export class AgentService {
                                 const allSubgoals = this.planner.getSubgoalDescriptions();
                                 console.log(`[AGENT] All current subgoals: [${allSubgoals.join(', ')}]`);
 
-                                this.planner.addAction(`branch([${newSubgoals.join(', ')}])`);
+                                this.addActionWithIteration(`branch([${newSubgoals.join(', ')}])`);
                             } else {
                                 console.log(`[AGENT] Failed to add subgoals`);
                             }
@@ -225,28 +238,16 @@ export class AgentService {
                     }
                     break;
 
-                case 'prune':
-                    const removedSubgoal = this.planner.removeLastSubgoal();
-                    if (removedSubgoal) {
-                        console.log(`[AGENT] Pruned subgoal: ${removedSubgoal}`);
-                        const remainingSubgoals = this.planner.getSubgoalDescriptions();
-                        console.log(`[AGENT] Remaining subgoals: [${remainingSubgoals.join(', ')}]`);
-                        this.planner.addAction(`prune(${removedSubgoal})`);
-                    } else {
-                        const currentPlan = this.planner.getCurrentPlan();
-                        console.log(`[AGENT] Cannot prune: no subgoals to remove from goal "${currentPlan?.goal}"`);
-                    }
-                    break;
 
                 case 'complete_subgoal':
                     const result = this.planner.completeCurrentSubgoal();
                     if (result.completed) {
                         if (result.next) {
                             console.log(`[AGENT] Completed previous subgoal, now working on: ${result.next}`);
-                            this.planner.addAction(`complete_subgoal() → now on: ${result.next}`);
+                            this.addActionWithIteration(`complete_subgoal() → now on: ${result.next}`);
                         } else if (result.allCompleted) {
                             console.log(`[AGENT] Completed final subgoal! All subgoals done.`);
-                            this.planner.addAction(`complete_subgoal() → all subgoals completed`);
+                            this.addActionWithIteration(`complete_subgoal() → all subgoals completed`);
                         }
                     } else {
                         console.log(`[AGENT] No current subgoal to complete`);
@@ -257,7 +258,7 @@ export class AgentService {
                     const note = args.message || args.content || '';
                     if (this.planner.addNote(note)) {
                         console.log(`[AGENT] Noted: ${note}`);
-                        this.planner.addAction(`note(${note})`);
+                        this.addActionWithIteration(`note(${note})`);
                     }
                     break;
 
@@ -281,7 +282,7 @@ export class AgentService {
                         timestamp: Date.now()
                     });
 
-                    this.planner.addAction(`manual_intervention("${reason}")`);
+                    this.addActionWithIteration(`manual_intervention("${reason}")`);
                     break;
 
                 case 'stop':
@@ -309,14 +310,14 @@ export class AgentService {
                         console.log(`[AGENT] Clicked element ${args.elementId}: ${elementDesc.name} (${elementDesc.selector})`);
 
                         if (pageChanged) {
-                            this.planner.addAction(`click("${elementDesc.name}") → navigated to new page`);
+                            this.addActionWithIteration(`click("${elementDesc.name}") → navigated to new page`);
                         } else {
-                            this.planner.addAction(`click("${elementDesc.name}") → success`);
+                            this.addActionWithIteration(`click("${elementDesc.name}") → success`);
                         }
                     } else if (args.selector) {
                         await this.browser.click(args.selector);
                         console.log(`[AGENT] Clicked selector: ${args.selector}`);
-                        this.planner.addAction(`click(${args.selector})`);
+                        this.addActionWithIteration(`click(${args.selector})`);
                     } else {
                         throw new Error('No valid elementId or selector provided for click');
                     }
@@ -327,11 +328,11 @@ export class AgentService {
                         const elementDesc = this.currentElementMap.get(args.elementId)!;
                         await this.browser.type(elementDesc.selector, args.text);
                         console.log(`[AGENT] Typed "${args.text}" into element ${args.elementId}: ${elementDesc.name} (${elementDesc.selector})`);
-                        this.planner.addAction(`type("${elementDesc.name}", "${args.text}")`);
+                        this.addActionWithIteration(`type("${elementDesc.name}", "${args.text}")`);
                     } else if (args.selector) {
                         await this.browser.type(args.selector, args.text);
                         console.log(`[AGENT] Typed "${args.text}" into selector: ${args.selector}`);
-                        this.planner.addAction(`type(${args.selector}, "${args.text}")`);
+                        this.addActionWithIteration(`type(${args.selector}, "${args.text}")`);
                     } else {
                         throw new Error('No valid elementId or selector provided for type');
                     }
@@ -340,19 +341,19 @@ export class AgentService {
                 case 'enter':
                     await this.browser.enter();
                     console.log(`[AGENT] Pressed Enter key`);
-                    this.planner.addAction('enter()');
+                    this.addActionWithIteration('enter()');
                     break;
 
                 case 'goto':
                     await this.browser.goto(args.url);
                     console.log(`[AGENT] Navigated to: ${args.url}`);
-                    this.planner.addAction(`goto(${args.url})`);
+                    this.addActionWithIteration(`goto(${args.url})`);
                     break;
 
                 case 'goBack':
                     await this.browser.goBack();
                     console.log(`[AGENT] Went back`);
-                    this.planner.addAction('goBack()');
+                    this.addActionWithIteration('goBack()');
                     break;
 
                 default:
@@ -362,7 +363,7 @@ export class AgentService {
         } catch (error) {
             console.error(`[AGENT] Error executing ${actionName}:`, error);
             debugger
-            this.planner.addAction(`error(${actionName}): element id: ${args.elementId}, error: ${error instanceof Error ? error.message?.slice(0, 80) : 'Unknown error'}`);
+            this.addActionWithIteration(`error(${actionName}(${args.elementId})): error: ${error instanceof Error ? error.message?.slice(0, 80) : 'Unknown error'}`);
             this.sendResponse('agent_error', {
                 action: actionName,
                 error: error instanceof Error ? error.message : 'Unknown error'

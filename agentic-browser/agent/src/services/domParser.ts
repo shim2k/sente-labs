@@ -30,6 +30,7 @@ const INTERACTIVE_ROLES = new Set([
     'button',
     'link',
     'textbox',
+    'searchbox',
     'checkbox',
     'radio',
     'combobox',
