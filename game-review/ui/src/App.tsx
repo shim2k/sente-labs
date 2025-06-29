@@ -163,7 +163,7 @@ function LoadingPage() {
 }
 
 // Router-aware sidebar wrapper
-function SidebarWrapper() {
+function SidebarWrapper({ onClose }: { onClose?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -171,14 +171,19 @@ function SidebarWrapper() {
   
   const handlePageChange = (page: string) => {
     navigate(`/${page}`);
+    // Close sidebar on mobile after navigation
+    if (onClose) {
+      onClose();
+    }
   };
   
-  return <Sidebar currentPage={currentPage} onPageChange={handlePageChange} />;
+  return <Sidebar currentPage={currentPage} onPageChange={handlePageChange} onClose={onClose} />;
 }
 
 // Main app content with routing
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // If Auth0 is still initializing
   if (loading) {
@@ -195,12 +200,32 @@ function AppContent() {
       <Router>
         <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
           {/* Top Bar */}
-          <TopBar />
+          <TopBar onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
           
           {/* Main Content Area */}
           <div className="flex flex-1 min-h-0">
-            {/* Sidebar */}
-            <SidebarWrapper />
+            {/* Sidebar - Hidden on mobile, visible on desktop */}
+            <div className="hidden lg:block">
+              <SidebarWrapper />
+            </div>
+            
+            {/* Mobile Sidebar Overlay */}
+            <div className={`lg:hidden fixed inset-0 z-40 flex pointer-events-none ${isSidebarOpen ? '' : ''}`}>
+              {/* Backdrop */}
+              <div 
+                className={`fixed inset-0 bg-black/50 transition-opacity duration-300 ease-in-out ${
+                  isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                }`} 
+                onClick={() => setIsSidebarOpen(false)} 
+              />
+              
+              {/* Sidebar */}
+              <div className={`relative flex w-64 flex-col bg-gray-900 border-r border-gray-800 shadow-2xl transition-all duration-300 ease-in-out transform ${
+                isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+              } pointer-events-auto`}>
+                <SidebarWrapper onClose={() => setIsSidebarOpen(false)} />
+              </div>
+            </div>
             
             {/* Main Content */}
             <div className="flex-1 overflow-auto bg-gray-900">

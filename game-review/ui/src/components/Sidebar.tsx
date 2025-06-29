@@ -6,7 +6,11 @@ interface SidebarProps {
   onPageChange: (page: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
+interface ExtendedSidebarProps extends SidebarProps {
+  onClose?: () => void;
+}
+
+const Sidebar: React.FC<ExtendedSidebarProps> = ({ currentPage, onPageChange, onClose }) => {
   const { identityStatus } = useIdentity();
   
   const menuItems = [
@@ -34,8 +38,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     <div className="w-64 bg-gray-900 border-r border-gray-800 h-full flex flex-col">
       {/* Sidebar Header */}
       <div className="p-6 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-gray-200">Navigation</h2>
-        <p className="text-sm text-gray-400 mt-1">Manage your AOE4 matches</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200">Navigation</h2>
+            <p className="text-sm text-gray-400 mt-1">Manage your AOE4 matches</p>
+          </div>
+          {/* Close button for mobile */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 text-gray-400 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 rounded-lg hover:bg-gray-800"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Menu Items */}

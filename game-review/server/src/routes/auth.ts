@@ -17,7 +17,10 @@ router.get('/identities', authenticateToken, async (req: AuthRequest, res) => {
         WHERE u.auth0_sub = $1
       `, [req.auth?.sub]);
 
-      const identities = {
+      const identities: {
+        steam: any;
+        discord: any;
+      } = {
         steam: null,
         discord: null
       };

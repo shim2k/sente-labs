@@ -39,6 +39,14 @@ async function processReviewTask(task: ReviewTask) {
       WHERE id = $1
     `, [task.taskId]);
 
+    // Get review task model
+    const taskResult = await client.query(`
+      SELECT llm_model FROM review_tasks WHERE id = $1
+    `, [task.taskId]);
+    
+    const llmModel = taskResult.rows[0]?.llm_model || 'gpt-4o';
+    console.log(`Processing review with model: ${llmModel}`);
+
     // Get game data with players and user's Steam/AOE4World info
     const gameResult = await client.query(`
       SELECT g.*,
@@ -92,24 +100,41 @@ async function processReviewTask(task: ReviewTask) {
       };
     }
 
-    // Generate review using OpenAI
-    const prompt = `SYSTEM: You are an elite Age of Empires IV coach analyzing a match replay. 
+    // Generate review using OpenAI with selected model
+    const isEliteReview = llmModel === 'o3';
+    
+    const basePrompt = `SYSTEM: You are an elite Age of Empires IV coach analyzing a match replay. 
     Provide detailed strategic analysis and split the review into sections that are relevant to the actual game data.
 
 Focus on this player's performance: ${gameInfo.steam_id}.
 
 Recall things that happened in the game through the review.
 
+Make the review detailed and long but well sectioned.
+
 Be critical of the player's performance and point out areas for improvement.
 
 Point out interesting things that happened in the game that are relevant to the player's performance and use examples throughout your response.
 
-Format your response as markdown with clear sections. Add emojis (in tasteful amounts) to make it more engaging.
+Format your response as markdown with clear sections. Add emojis (in tasteful amounts) to make it more engaging.`;
+
+    const elitePromptAddition = isEliteReview ? `
+
+ELITE REVIEW: Provide even deeper strategic analysis including:
+- Advanced tactical decision analysis
+- Macro vs micro balance assessment  
+- Economic efficiency optimization
+- Unit composition timing analysis
+- Map control and positioning insights
+- Counter-strategy recommendations
+- Psychological/mindset coaching tips` : '';
+
+    const prompt = basePrompt + elitePromptAddition + `
 
 Game Data: ${JSON.stringify(detailedGameData)}`;
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: llmModel,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -123,7 +148,7 @@ Game Data: ${JSON.stringify(detailedGameData)}`;
       INSERT INTO reviews (game_id, llm_model, summary_md) 
       VALUES ($1, $2, $3) 
       RETURNING id
-    `, [task.gameId, 'gpt-4o', review]);
+    `, [task.gameId, llmModel, review]);
 
     // Update game status
     await client.query(`

@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
 
 interface AuthContextType {
@@ -8,6 +8,8 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   getToken: () => Promise<string>;
+  tokens: number;
+  refreshTokens: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,7 +18,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: () => {},
   logout: () => {},
-  getToken: async () => ''
+  getToken: async () => '',
+  tokens: 5,
+  refreshTokens: () => {}
 });
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
@@ -29,6 +33,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     isLoading 
   } = useAuth0();
 
+  const [tokens, setTokens] = useState<number>(5);
+
   const getToken = async () => {
     try {
       return await getAccessTokenSilently();
@@ -38,6 +44,41 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
+  const fetchTokens = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const token = await getToken();
+      console.log('Fetching tokens from API...');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v1/tokens`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Token data received:', data);
+        setTokens(data.tokens);
+      } else {
+        console.error('Failed to fetch tokens:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+    }
+  };
+
+  const refreshTokens = () => {
+    fetchTokens();
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      fetchTokens();
+    }
+  }, [isAuthenticated, isLoading]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -46,7 +87,9 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         loading: isLoading,
         login: loginWithRedirect,
         logout: () => auth0Logout({ logoutParams: { returnTo: window.location.origin } }),
-        getToken
+        getToken,
+        tokens,
+        refreshTokens
       }}
     >
       {children}

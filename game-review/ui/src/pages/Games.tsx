@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ModelSelectionModal from '../components/ModelSelectionModal';
 
 interface GamePlayer {
   team_number: number;
@@ -37,12 +38,15 @@ interface GamesResponse {
 }
 
 const Games: React.FC = () => {
-  const { getToken } = useAuth();
+  const { getToken, refreshTokens, tokens } = useAuth();
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reviewingGames, setReviewingGames] = useState<Set<number>>(new Set());
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const hasInitialized = useRef(false);
 
   const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:4000';
@@ -110,7 +114,18 @@ const Games: React.FC = () => {
   }, [apiBase, getToken]);
 
 
-  const requestReview = async (gameId: number) => {
+  const handleRequestReview = (gameId: number) => {
+    setSelectedGameId(gameId);
+    setModelModalOpen(true);
+  };
+
+  const handleModelSelection = (model: 'gpt-4o' | 'o3') => {
+    if (selectedGameId) {
+      requestReview(selectedGameId, model);
+    }
+  };
+
+  const requestReview = async (gameId: number, model: 'gpt-4o' | 'o3') => {
     setReviewingGames(prev => new Set(prev).add(gameId));
 
     try {
@@ -118,8 +133,10 @@ const Games: React.FC = () => {
       const response = await fetch(`${apiBase}/api/v1/games/${gameId}/review`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model })
       });
 
       if (response.ok) {
@@ -129,8 +146,21 @@ const Games: React.FC = () => {
             ? { ...game, status: 'reviewing' as const }
             : game
         ));
+        
+        // Refresh token count after successful request
+        console.log('Review request successful, refreshing tokens...');
+        refreshTokens();
+        setErrorMessage(null);
       } else {
-        console.error('Failed to request review');
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (errorData.code === 'INSUFFICIENT_TOKENS') {
+          setErrorMessage('Insufficient tokens! You need at least 1 token to request a review.');
+        } else {
+          setErrorMessage(errorData.error || 'Failed to request review');
+        }
+        
+        console.error('Failed to request review:', errorData);
       }
     } catch (error) {
       console.error('Error requesting review:', error);
@@ -299,23 +329,23 @@ const Games: React.FC = () => {
         <div className="absolute bottom-40 right-20 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl animate-pulse delay-2000"></div>
       </div>
       
-      <div className="relative max-w-7xl mx-auto px-6 py-8">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Hero Header */}
-        <div className="mb-12 text-center">
-          <div className="inline-flex items-center justify-center space-x-3 mb-4">
+        <div className="mb-8 sm:mb-12 text-center">
+          <div className="inline-flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
             <div className="relative flex items-center justify-center">
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></div>
+              <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full animate-ping"></div>
             </div>
-            <h1 className="text-5xl font-black bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
               Battle Archive
             </h1>
           </div>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-lg lg:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
             Your legendary AOE4 conquests await analysis. Discover strategic insights from every battle.
           </p>
           <div className="mt-6 flex items-center justify-center space-x-6 text-sm text-gray-500">
@@ -330,6 +360,29 @@ const Games: React.FC = () => {
           </div>
         </div>
 
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="mb-6 mx-auto max-w-2xl">
+            <div className="bg-red-900/50 border border-red-500/50 rounded-lg p-4 flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-red-200 text-sm font-medium">{errorMessage}</p>
+              </div>
+              <button
+                onClick={() => setErrorMessage(null)}
+                className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading ? (
@@ -387,10 +440,10 @@ const Games: React.FC = () => {
                 {/* Subtle glow effects */}
                 <div className="absolute inset-0 bg-gradient-to-r from-orange-500/3 via-purple-500/2 to-blue-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl pointer-events-none"></div>
                 
-                <div className="relative flex p-6 gap-6">
+                <div className="relative flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6">
                   {/* Left Section - Enhanced Map Image */}
-                  <div className="flex-shrink-0">
-                    <div className="relative w-40 h-28 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/10 group-hover:ring-orange-400/30 transition-all duration-300">
+                  <div className="flex-shrink-0 w-full sm:w-auto">
+                    <div className="relative w-full h-32 sm:w-40 sm:h-28 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/10 group-hover:ring-orange-400/30 transition-all duration-300">
                       <img 
                         src={getMapImage(getMapName(game))}
                         alt={getMapName(game)}
@@ -401,10 +454,10 @@ const Games: React.FC = () => {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                       <div className="absolute bottom-2 left-2 right-2">
-                        <p className="text-white text-sm font-bold truncate drop-shadow-lg">{getMapName(game)}</p>
+                        <p className="text-white text-xs sm:text-sm font-bold truncate drop-shadow-lg">{getMapName(game)}</p>
                       </div>
                       {/* Enhanced Status Indicator */}
-                      <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border-2 border-white/80 ${
+                      <div className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-white/80 ${
                         game.status === 'reviewed' 
                           ? 'bg-green-400 shadow-lg shadow-green-400/60'
                           : game.status === 'reviewing'
@@ -426,25 +479,25 @@ const Games: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     {/* Header with all player flags */}
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2 sm:space-x-4 overflow-x-auto">
                         {(() => {
                           const { team1, team2 } = getAllPlayerFlags(game);
                           return (
-                            <div className="flex items-center space-x-6">
+                            <div className="flex items-center space-x-3 sm:space-x-6">
                               {/* Team 1 */}
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-1 sm:space-x-2">
                                 {team1.map((player: GamePlayer, index: number) => (
                                   <div key={index} className="relative">
                                     <img 
                                       src={getCivFlag(player.civilization)}
                                       alt={player.civilization}
-                                      className="w-8 h-6 object-cover rounded-md border-2 border-blue-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
+                                      className="w-6 h-4 sm:w-8 sm:h-6 object-cover rounded-md border-2 border-blue-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
                                       onError={(e) => {
                                         e.currentTarget.src = `https://via.placeholder.com/32x24/374151/E2E8F0?text=${player.civilization.charAt(0).toUpperCase()}`;
                                       }}
                                     />
                                     {player.is_user && (
-                                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white/50"></div>
+                                      <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full border border-white/50"></div>
                                     )}
                                   </div>
                                 ))}
@@ -452,25 +505,25 @@ const Games: React.FC = () => {
                               
                               {/* VS Divider */}
                               <div className="flex items-center">
-                                <div className="w-1 h-8 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full"></div>
-                                <span className="mx-3 text-lg font-bold text-orange-400">VS</span>
-                                <div className="w-1 h-8 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full"></div>
+                                <div className="w-0.5 h-6 sm:w-1 sm:h-8 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full"></div>
+                                <span className="mx-1 sm:mx-3 text-sm sm:text-lg font-bold text-orange-400">VS</span>
+                                <div className="w-0.5 h-6 sm:w-1 sm:h-8 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full"></div>
                               </div>
                               
                               {/* Team 2 */}
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-1 sm:space-x-2">
                                 {team2.map((player: GamePlayer, index: number) => (
                                   <div key={index} className="relative">
                                     <img 
                                       src={getCivFlag(player.civilization)}
                                       alt={player.civilization}
-                                      className="w-8 h-6 object-cover rounded-md border-2 border-red-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
+                                      className="w-6 h-4 sm:w-8 sm:h-6 object-cover rounded-md border-2 border-red-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
                                       onError={(e) => {
                                         e.currentTarget.src = `https://via.placeholder.com/32x24/374151/E2E8F0?text=${player.civilization.charAt(0).toUpperCase()}`;
                                       }}
                                     />
                                     {player.is_user && (
-                                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-white/50"></div>
+                                      <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full border border-white/50"></div>
                                     )}
                                   </div>
                                 ))}
@@ -479,7 +532,7 @@ const Games: React.FC = () => {
                           );
                         })()}
                       </div>
-                      <div className="text-right bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-700/50">
+                      <div className="text-right bg-gray-800/50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg border border-gray-700/50">
                         <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">Status</p>
                         <div className="flex items-center space-x-2">
                           <div className={`w-2 h-2 rounded-full ${
@@ -498,38 +551,38 @@ const Games: React.FC = () => {
                     </div>
                     
                     {/* Enhanced Game Stats */}
-                    <div className="grid grid-cols-4 gap-4">
-                      <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-lg p-3 border border-blue-500/20">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+                      <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-lg p-2 sm:p-3 border border-blue-500/20">
                         <p className="text-xs text-blue-300 font-semibold uppercase tracking-wide mb-1">⚔️ Mode</p>
-                        <p className="text-lg font-bold text-white">{game.team_size}</p>
+                        <p className="text-sm sm:text-lg font-bold text-white">{game.team_size}</p>
                       </div>
-                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-lg p-3 border border-purple-500/20">
+                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-lg p-2 sm:p-3 border border-purple-500/20">
                         <p className="text-xs text-purple-300 font-semibold uppercase tracking-wide mb-1">🏆 Result</p>
-                        <span className={`text-lg font-bold ${
+                        <span className={`text-sm sm:text-lg font-bold ${
                           getUserResult(game) === 'win' ? 'text-green-400' :
                           getUserResult(game) === 'loss' ? 'text-red-400' : 'text-gray-400'
                         }`}>
                           {getUserResult(game) === 'unknown' ? 'TBD' : getUserResult(game).toUpperCase()}
                         </span>
                       </div>
-                      <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 rounded-lg p-3 border border-orange-500/20">
+                      <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 rounded-lg p-2 sm:p-3 border border-orange-500/20">
                         <p className="text-xs text-orange-300 font-semibold uppercase tracking-wide mb-1">⏱️ Duration</p>
-                        <p className="text-lg font-bold text-white">{formatDuration(game.duration_seconds)}</p>
+                        <p className="text-sm sm:text-lg font-bold text-white">{formatDuration(game.duration_seconds)}</p>
                       </div>
-                      <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg p-3 border border-green-500/20">
+                      <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg p-2 sm:p-3 border border-green-500/20 col-span-2 sm:col-span-1">
                         <p className="text-xs text-green-300 font-semibold uppercase tracking-wide mb-1">📅 Played</p>
-                        <p className="text-lg font-bold text-white">{formatDate(game.played_at).split(',')[0]}</p>
+                        <p className="text-sm sm:text-lg font-bold text-white">{formatDate(game.played_at).split(',')[0]}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Right Section - Enhanced Actions */}
-                  <div className="flex-shrink-0 flex flex-col justify-center space-y-3">
+                  <div className="flex-shrink-0 flex flex-col sm:justify-center space-y-2 sm:space-y-3 mt-4 sm:mt-0">
                     {game.status === 'raw' && (
                       <button
-                        onClick={() => requestReview(game.id)}
+                        onClick={() => handleRequestReview(game.id)}
                         disabled={reviewingGames.has(game.id)}
-                        className={`group/btn relative px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                        className={`group/btn relative px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
                           reviewingGames.has(game.id)
                             ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                             : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-xl hover:shadow-blue-500/30'
@@ -546,7 +599,7 @@ const Games: React.FC = () => {
                     )}
 
                     {game.status === 'reviewing' && (
-                      <div className="relative px-6 py-3 bg-gradient-to-r from-orange-600/20 to-orange-500/20 border-2 border-orange-500/40 rounded-xl text-orange-300 text-sm font-bold text-center">
+                      <div className="relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-600/20 to-orange-500/20 border-2 border-orange-500/40 rounded-xl text-orange-300 text-xs sm:text-sm font-bold text-center">
                         <div className="absolute inset-0 bg-orange-400/10 rounded-xl animate-pulse"></div>
                         <span className="relative flex items-center justify-center space-x-2">
                           <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
@@ -558,7 +611,7 @@ const Games: React.FC = () => {
                     {game.review && (
                       <button 
                         onClick={() => navigate(`/review/${game.review!.id}`)}
-                        className="group/btn relative px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-green-500/30"
+                        className="group/btn relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-green-500/30"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-green-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                         <span className="relative flex items-center space-x-2">
@@ -574,8 +627,8 @@ const Games: React.FC = () => {
 
                 {/* Expandable Player Details */}
                 {game.players && game.players.length > 0 && (
-                  <div className="border-t border-gray-700/50 px-5 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="border-t border-gray-700/50 px-4 sm:px-5 py-3 sm:py-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {[1, 2].map(teamNum => {
                         const teamPlayers = game.players.filter(p => p.team_number === teamNum);
                         if (teamPlayers.length === 0) return null;
@@ -618,7 +671,7 @@ const Games: React.FC = () => {
 
                 {/* Review Summary */}
                 {game.review && (
-                  <div className="border-t border-gray-700/50 px-5 py-4 bg-green-900/10">
+                  <div className="border-t border-gray-700/50 px-4 sm:px-5 py-3 sm:py-4 bg-green-900/10">
                     <div className="flex items-center justify-between mb-2">
                       <h5 className="text-sm font-bold text-green-400">✨ AI Analysis Available</h5>
                       <button 
@@ -638,6 +691,17 @@ const Games: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Model Selection Modal */}
+      <ModelSelectionModal
+        isOpen={modelModalOpen}
+        onClose={() => {
+          setModelModalOpen(false);
+          setSelectedGameId(null);
+        }}
+        onConfirm={handleModelSelection}
+        userTokens={tokens}
+      />
     </div>
   );
 };

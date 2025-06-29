@@ -6,6 +6,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     auth0_sub TEXT UNIQUE NOT NULL,
     email TEXT,
+    tokens INTEGER DEFAULT 5 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -75,6 +76,7 @@ CREATE TABLE reviews (
 CREATE TABLE review_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     game_id BIGINT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    llm_model TEXT NOT NULL DEFAULT 'gpt-4o' CHECK (llm_model IN ('gpt-4o', 'o3')),
     job_state TEXT NOT NULL DEFAULT 'queued' CHECK (job_state IN ('queued', 'running', 'completed', 'failed')),
     retries INTEGER DEFAULT 0,
     error TEXT,
