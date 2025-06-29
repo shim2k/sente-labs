@@ -1,0 +1,42 @@
+{
+  "name": "aoe4-review-backend",
+  "version": "1.0.0",
+  "description": "AOE4 Game Review Backend API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "dev:debug": "tsx watch --inspect src/index.ts",
+    "start": "node dist/index.js",
+    "start:debug": "node --inspect dist/index.js",
+    "worker": "tsx src/worker.ts",
+    "worker:debug": "tsx --inspect=9230 src/worker.ts",
+    "create-db": "tsx src/scripts/create-database.ts",
+    "remove-scores": "tsx src/scripts/remove-scores.ts",
+    "add-aoe4world-columns": "tsx src/scripts/add-aoe4world-columns.ts",
+    "normalize-games": "tsx src/scripts/normalize-games-table.ts",
+    "add-winner-columns": "tsx src/scripts/add-winner-columns.ts",
+    "update-result-constraint": "tsx src/scripts/update-result-constraint.ts",
+    "migrate": "node dist/migrations/migrate.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.0.1",
+    "aws-sdk": "^2.1479.0",
+    "express-rate-limit": "^7.1.5",
+    "openai": "^4.20.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/pg": "^8.10.7",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.8.10",
+    "typescript": "^5.2.2",
+    "tsx": "^4.6.0"
+  }
+}

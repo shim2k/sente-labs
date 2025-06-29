@@ -60,7 +60,7 @@ function LoginPage() {
         
         <div className="mt-8 flex items-center justify-center space-x-2 text-sm text-gray-500">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span>Secure Authentication via Auth0</span>
+          {/* <span>Secure Authentication via Auth0</span> */}
         </div>
       </div>
       

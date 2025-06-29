@@ -136,7 +136,7 @@ const LogsPanel: React.FC = () => {
   const testConnection = () => {
     // Extract base URL from the current location
     const baseUrl = window.location.hostname;
-    const port = '3001'; // Assuming this is the server port
+    const port = '4000'; // Assuming this is the server port
     const url = `http://${baseUrl}:${port}/monitor/events`;
     
     // Open the URL in a new tab to test

@@ -51,3 +51,55 @@ agentic-browser/ui/test
 agentic-browser/ui/types
 agentic-browser/ui/utils
 agentic-browser/ui/vendor
+
+# AOE4 Review App - Game Review Project
+game-review/server/node_modules
+game-review/server/dist
+game-review/server/build
+game-review/server/logs
+game-review/server/.pm2
+game-review/server/ecosystem.config.js
+game-review/server/tmp
+game-review/server/temp
+game-review/server/coverage
+game-review/server/.nyc_output
+game-review/ui/node_modules
+game-review/ui/dist
+game-review/ui/build
+game-review/ui/coverage
+game-review/ui/tmp
+game-review/ui/temp
+game-review/ui/.tmp
+
+# AOE4 Review - Sensitive Files (NEVER COMMIT)
+game-review/*.pem
+game-review/*.key
+game-review/*.p12
+game-review/*.pfx
+game-review/bucket-policy.json
+game-review/cloudfront-config*.json
+game-review/dns-*.json
+
+# AOE4 Review - Deployment Scripts (contain sensitive data)
+game-review/deploy-frontend.sh
+game-review/deploy-backend-update.sh
+game-review/deploy-backend.sh
+game-review/deploy-all.sh
+
+# AOE4 Review - Database Files
+game-review/server/*.sqlite
+game-review/server/*.sqlite3
+game-review/server/*.db
+
+# AOE4 Review - TypeScript Cache
+game-review/server/*.tsbuildinfo
+
+# AOE4 Review - Environment-specific files
+game-review/ui/.env.local
+game-review/ui/.env.development.local
+game-review/ui/.env.test.local
+game-review/ui/.env.production.local
+
+# AOE4 Review - Archives
+game-review/*.tgz
+game-review/*.tar.gz
