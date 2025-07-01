@@ -70,16 +70,17 @@ async function processReviewTask(task: ReviewTask) {
       FROM games g
       JOIN users u ON g.user_id = u.id
       JOIN identities i ON u.id = i.user_id AND i.provider = 'steam'
-      LEFT JOIN game_players gp ON g.id = gp.game_id
-      WHERE g.id = $1
-      GROUP BY g.id, u.auth0_sub, i.external_id, i.aoe4world_profile_id
-    `, [task.gameId]);
+      LEFT JOIN game_players gp ON g.db_id = gp.game_db_id
+      WHERE g.id = $1 AND g.user_id = $2
+      GROUP BY g.id, g.db_id, u.auth0_sub, i.external_id, i.aoe4world_profile_id
+    `, [task.gameId, task.userId]);
 
     if (gameResult.rows.length === 0) {
       throw new Error('Game not found');
     }
 
     const gameInfo = gameResult.rows[0];
+    const gameDbId = gameInfo.db_id;
 
     // Fetch detailed game summary for AI analysis
     let detailedGameData;
@@ -148,15 +149,15 @@ Game Data: ${JSON.stringify(detailedGameData)}`;
 
     // Save review
     const reviewResult = await client.query(`
-      INSERT INTO reviews (game_id, llm_model, summary_md) 
+      INSERT INTO reviews (game_db_id, llm_model, summary_md) 
       VALUES ($1, $2, $3) 
       RETURNING id
-    `, [task.gameId, llmModel, review]);
+    `, [gameDbId, llmModel, review]);
 
     // Update game status
     await client.query(`
-      UPDATE games SET status = 'reviewed' WHERE id = $1
-    `, [task.gameId]);
+      UPDATE games SET status = 'reviewed' WHERE db_id = $1
+    `, [gameDbId]);
 
     // Mark task as completed
     await client.query(`

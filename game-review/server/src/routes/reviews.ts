@@ -48,7 +48,7 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
 
       // Check if game exists and belongs to user
       const gameResult = await client.query(`
-        SELECT id, user_id FROM games 
+        SELECT id, db_id, user_id FROM games 
         WHERE id = $1 AND user_id = $2
       `, [gameId, user.id]);
 
@@ -56,11 +56,13 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
         return res.status(404).json({ error: 'Game not found', code: 'GAME_NOT_FOUND' });
       }
 
+      const gameDbId = gameResult.rows[0].db_id;
+
       // Check if review task already exists
       const existingTaskResult = await client.query(`
         SELECT id FROM review_tasks 
-        WHERE game_id = $1 AND job_state IN ('queued', 'running')
-      `, [gameId]);
+        WHERE game_db_id = $1 AND job_state IN ('queued', 'running')
+      `, [gameDbId]);
 
       if (existingTaskResult.rows.length > 0) {
         return res.status(409).json({ error: 'Review already in progress', code: 'REVIEW_IN_PROGRESS' });
@@ -68,10 +70,10 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
 
       // Create review task
       const taskResult = await client.query(`
-        INSERT INTO review_tasks (game_id, llm_model, job_state) 
+        INSERT INTO review_tasks (game_db_id, llm_model, job_state) 
         VALUES ($1, $2, 'queued') 
         RETURNING id
-      `, [gameId, model]);
+      `, [gameDbId, model]);
 
       const taskId = taskResult.rows[0].id;
 
@@ -82,8 +84,8 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
 
       // Update game status to reviewing immediately
       await client.query(`
-        UPDATE games SET status = 'reviewing' WHERE id = $1
-      `, [gameId]);
+        UPDATE games SET status = 'reviewing' WHERE db_id = $1
+      `, [gameDbId]);
 
       // Send SQS message
       console.log('Sending SQS message for task:', taskId);

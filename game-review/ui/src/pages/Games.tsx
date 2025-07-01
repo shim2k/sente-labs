@@ -213,7 +213,10 @@ const Games: React.FC = () => {
       'Glade': 'https://static.aoe4world.com/assets/maps/glade-158cc025ccea142d30020d94e38ef780d99a0f5c307e35439d2a1bc607798075.png',
       'Four Lakes': 'https://static.aoe4world.com/assets/maps/four_lakes-eb90c0b139243782a53f6ce4fb4227d1f6827e9e00672d11a1879a58fa2737aa.png',
       'Relic River': 'https://static.aoe4world.com/assets/maps/relic_river-691237e37dc0ab45b9462b29f6661b4540c899baa4601bac41f692cfec889a10.png',
-      'Carmel': 'https://static.aoe4world.com/assets/maps/carmel-78bdc24e1ccb991db6e122afb6f021ab2ffcfc57e6721aaf65533988dfc79213.png'
+      'Carmel': 'https://static.aoe4world.com/assets/maps/carmel-78bdc24e1ccb991db6e122afb6f021ab2ffcfc57e6721aaf65533988dfc79213.png',
+      'Lipany': 'https://static.aoe4world.com/assets/maps/lipany-d1e494f8fd09007b948dee6ce146402ab57a382ca9c52265f140d668c3ea6b5e.png',
+      'Lakeside': 'https://static.aoe4world.com/assets/maps/lakeside-49c8b4267fab0c335d28aeff1d73a868587945d252f02f5ebead9c2fd92c2dbf.png',
+      'The Pit': 'https://static.aoe4world.com/assets/maps/the_pit-767d4fae13574b943729abec3860147a381f60ced9faca5e018e7878be9ff629.png'
     };
 
     const normalizedMapName = mapName.trim();
@@ -461,16 +464,16 @@ const Games: React.FC = () => {
                       </div>
                       {/* Enhanced Status Indicator */}
                       <div className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-white/80 ${game.status === 'reviewed'
-                          ? 'bg-green-400 shadow-lg shadow-green-400/60'
-                          : game.status === 'reviewing'
-                            ? 'bg-orange-400 animate-pulse shadow-lg shadow-orange-400/60'
-                            : 'bg-gray-400 shadow-lg shadow-gray-400/60'
+                        ? 'bg-green-400 shadow-lg shadow-green-400/60'
+                        : game.status === 'reviewing'
+                          ? 'bg-orange-400 animate-pulse shadow-lg shadow-orange-400/60'
+                          : 'bg-gray-400 shadow-lg shadow-gray-400/60'
                         }`}>
                         <div className={`absolute inset-0.5 rounded-full ${game.status === 'reviewed'
-                            ? 'bg-green-300'
-                            : game.status === 'reviewing'
-                              ? 'bg-orange-300'
-                              : 'bg-gray-300'
+                          ? 'bg-green-300'
+                          : game.status === 'reviewing'
+                            ? 'bg-orange-300'
+                            : 'bg-gray-300'
                           }`}></div>
                       </div>
                     </div>
@@ -535,10 +538,10 @@ const Games: React.FC = () => {
                         <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">Status</p>
                         <div className="flex items-center space-x-2">
                           <div className={`w-2 h-2 rounded-full ${game.status === 'reviewed' ? 'bg-green-400' :
-                              game.status === 'reviewing' ? 'bg-orange-400 animate-pulse' : 'bg-gray-400'
+                            game.status === 'reviewing' ? 'bg-orange-400 animate-pulse' : 'bg-gray-400'
                             }`}></div>
                           <span className={`text-sm font-bold ${game.status === 'reviewed' ? 'text-green-400' :
-                              game.status === 'reviewing' ? 'text-orange-400' : 'text-gray-400'
+                            game.status === 'reviewing' ? 'text-orange-400' : 'text-gray-400'
                             }`}>
                             {game.status === 'reviewed' ? 'Reviewed' :
                               game.status === 'reviewing' ? 'Reviewing...' : 'Ready'}
@@ -556,7 +559,7 @@ const Games: React.FC = () => {
                       <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-lg p-2 sm:p-3 border border-purple-500/20">
                         <p className="text-xs text-purple-300 font-semibold uppercase tracking-wide mb-1">🏆 Result</p>
                         <span className={`text-sm sm:text-lg font-bold ${getUserResult(game) === 'win' ? 'text-green-400' :
-                            getUserResult(game) === 'loss' ? 'text-red-400' : 'text-gray-400'
+                          getUserResult(game) === 'loss' ? 'text-red-400' : 'text-gray-400'
                           }`}>
                           {getUserResult(game) === 'unknown' ? 'TBD' : getUserResult(game).toUpperCase()}
                         </span>
@@ -579,8 +582,8 @@ const Games: React.FC = () => {
                         onClick={() => handleRequestReview(game.id)}
                         disabled={reviewingGames.has(game.id)}
                         className={`group/btn relative px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 ${reviewingGames.has(game.id)
-                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-xl hover:shadow-blue-500/30'
+                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-xl hover:shadow-blue-500/30'
                           }`}
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>

@@ -7,8 +7,8 @@ interface AOE4WorldGamePlayer {
   civilization_randomized: boolean;
   rating: number | null;
   rating_diff: number | null;
-  mmr: number;
-  mmr_diff: number;
+  mmr: number | null;
+  mmr_diff: number | null;
   input_type: string;
 }
 
