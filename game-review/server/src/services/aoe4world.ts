@@ -101,7 +101,13 @@ export async function fetchRecentMatches(profileId: string): Promise<AOE4WorldMa
     }
     
     const data = await response.json() as AOE4WorldResponse;
-    return (data.games || []).slice(0, 20);
+    
+    // Sort games by started_at descending (most recent first) and take the last 20
+    const sortedGames = (data.games || [])
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+      .slice(0, 20);
+    
+    return sortedGames;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to fetch AOE4World data: ${error.message}`);

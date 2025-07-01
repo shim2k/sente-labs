@@ -3,14 +3,14 @@ import React, { useState } from 'react';
 interface ModelSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (model: 'gpt-4o' | 'o3') => void;
+  onConfirm: (type: 'regular' | 'elite') => void;
   userTokens: number;
 }
 
-type ModelType = 'gpt-4o' | 'o3';
+type ReviewType = 'regular' | 'elite';
 
-interface ModelOption {
-  id: ModelType;
+interface ReviewOption {
+  id: ReviewType;
   name: string;
   description: string;
   tokenCost: number;
@@ -24,11 +24,11 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
   onConfirm,
   userTokens
 }) => {
-  const [selectedModel, setSelectedModel] = useState<ModelType>('gpt-4o');
+  const [selectedType, setSelectedType] = useState<ReviewType>('regular');
 
-  const models: ModelOption[] = [
+  const reviewOptions: ReviewOption[] = [
     {
-      id: 'gpt-4o',
+      id: 'regular',
       name: 'Standard Review',
       description: 'Comprehensive analysis with strategic insights',
       tokenCost: 1,
@@ -40,11 +40,11 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
       ]
     },
     {
-      id: 'o3',
+      id: 'elite',
       name: 'Elite Review',
-      description: 'Advanced reasoning with deeper strategic insights',
+      description: 'Advanced analysis with deeper strategic insights',
       tokenCost: 2,
-      badge: 'PREMIUM',
+      badge: 'ELITE',
       features: [
         'Everything in Standard',
         'Advanced tactical analysis',
@@ -57,7 +57,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
   ];
 
   const handleConfirm = () => {
-    onConfirm(selectedModel);
+    onConfirm(selectedType);
     onClose();
   };
 
@@ -88,13 +88,13 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
 
         {/* Content */}
         <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
-          {models.map((model) => {
-            const affordable = canAfford(model.tokenCost);
-            const isSelected = selectedModel === model.id;
+          {reviewOptions.map((option) => {
+            const affordable = canAfford(option.tokenCost);
+            const isSelected = selectedType === option.id;
 
             return (
               <div
-                key={model.id}
+                key={option.id}
                 className={`relative p-5 rounded-xl border-2 cursor-pointer transition-all duration-300 ${
                   isSelected
                     ? 'border-yellow-500/50 bg-yellow-500/5'
@@ -102,12 +102,12 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
                     ? 'border-gray-600/50 hover:border-gray-500/50 bg-gray-800/30'
                     : 'border-gray-700/30 bg-gray-800/10 opacity-60'
                 }`}
-                onClick={() => affordable && setSelectedModel(model.id)}
+                onClick={() => affordable && setSelectedType(option.id)}
               >
                 {/* Badge */}
-                {model.badge && (
+                {option.badge && (
                   <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2 py-1 rounded-full">
-                    {model.badge}
+                    {option.badge}
                   </div>
                 )}
 
@@ -119,22 +119,22 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
                       {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">{model.name}</h3>
-                      <p className="text-gray-400 text-sm">{model.description}</p>
+                      <h3 className="text-lg font-semibold text-white">{option.name}</h3>
+                      <p className="text-gray-400 text-sm">{option.description}</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">🟡</span>
                     <span className={`font-bold ${affordable ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {model.tokenCost}
+                      {option.tokenCost}
                     </span>
                   </div>
                 </div>
 
                 {/* Features */}
                 <div className="space-y-2">
-                  {model.features.map((feature, index) => (
+                  {option.features.map((feature, index) => (
                     <div key={index} className="flex items-center space-x-2 text-sm">
                       <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -161,7 +161,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-400">
               Selected: <span className="text-white font-medium">
-                {models.find(m => m.id === selectedModel)?.name}
+                {reviewOptions.find(r => r.id === selectedType)?.name}
               </span>
             </div>
             <div className="flex space-x-3">
@@ -173,7 +173,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!canAfford(models.find(m => m.id === selectedModel)?.tokenCost || 0)}
+                disabled={!canAfford(reviewOptions.find(r => r.id === selectedType)?.tokenCost || 0)}
                 className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-black font-medium rounded-lg hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate Review

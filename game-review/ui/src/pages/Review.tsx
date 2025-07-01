@@ -144,15 +144,15 @@ const Review: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-start sm:justify-end space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-100">Game Analysis</h1>
             <div className={`px-3 py-1 rounded-full text-xs font-bold border ${
-              review.llm_model === 'o3' 
+              review.llm_model === 'gpt-4o' 
                 ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-300'
                 : 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 border-blue-500/30 text-blue-300'
             }`}>
-              {review.llm_model === 'o3' ? 'ELITE REVIEW' : 'STANDARD REVIEW'}
+              {review.llm_model === 'gpt-4o' ? 'ELITE REVIEW' : 'STANDARD REVIEW'}
             </div>
           </div>
           <p className="text-gray-400 text-xs sm:text-sm">
-            Generated on {formatDate(review.generated_at)} • {review.llm_model === 'o3' ? '2 tokens used' : '1 token used'}
+            Generated on {formatDate(review.generated_at)} • {review.llm_model === 'gpt-4o' ? '2 tokens used' : '1 token used'}
           </p>
         </div>
       </div>

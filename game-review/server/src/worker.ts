@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Import worker logger first to override console methods
+import './utils/workerLogger';
+
 import { SQS } from 'aws-sdk';
 import { pool } from './db/connection';
 import OpenAI from 'openai';
@@ -44,7 +47,7 @@ async function processReviewTask(task: ReviewTask) {
       SELECT llm_model FROM review_tasks WHERE id = $1
     `, [task.taskId]);
     
-    const llmModel = taskResult.rows[0]?.llm_model || 'gpt-4o';
+    const llmModel = taskResult.rows[0]?.llm_model || 'gpt-4o-mini';
     console.log(`Processing review with model: ${llmModel}`);
 
     // Get game data with players and user's Steam/AOE4World info
@@ -101,7 +104,7 @@ async function processReviewTask(task: ReviewTask) {
     }
 
     // Generate review using OpenAI with selected model
-    const isEliteReview = llmModel === 'o3';
+    const isPremiumReview = llmModel === 'gpt-4o';
     
     const basePrompt = `SYSTEM: You are an elite Age of Empires IV coach analyzing a match replay. 
     Provide detailed strategic analysis and split the review into sections that are relevant to the actual game data.
@@ -118,9 +121,9 @@ Point out interesting things that happened in the game that are relevant to the 
 
 Format your response as markdown with clear sections. Add emojis (in tasteful amounts) to make it more engaging.`;
 
-    const elitePromptAddition = isEliteReview ? `
+    const premiumPromptAddition = isPremiumReview ? `
 
-ELITE REVIEW: Provide even deeper strategic analysis including:
+PREMIUM REVIEW: Provide even deeper strategic analysis including:
 - Advanced tactical decision analysis
 - Macro vs micro balance assessment  
 - Economic efficiency optimization
@@ -129,7 +132,7 @@ ELITE REVIEW: Provide even deeper strategic analysis including:
 - Counter-strategy recommendations
 - Psychological/mindset coaching tips` : '';
 
-    const prompt = basePrompt + elitePromptAddition + `
+    const prompt = basePrompt + premiumPromptAddition + `
 
 Game Data: ${JSON.stringify(detailedGameData)}`;
 

@@ -1,11 +1,15 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Import logger first to override console methods
+import './utils/logger';
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { pool } from './db/connection';
 import { apiLimiter } from './middleware/rateLimit';
+import responseLogger from './middleware/responseLogger';
 import authRoutes from './routes/auth';
 import gamesRoutes from './routes/games';
 import reviewsRoutes from './routes/reviews';
@@ -23,6 +27,10 @@ const PORT = parseInt(process.env.PORT || '4000', 10);
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Add response logging middleware before routes
+app.use(responseLogger);
+
 app.use('/api', apiLimiter);
 
 // Health endpoint with DB connectivity check
@@ -35,6 +43,11 @@ app.get('/health', async (_req: Request, res: Response) => {
   } catch (error) {
     res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), database: 'disconnected' });
   }
+});
+
+// Test endpoint for error logging
+app.get('/test-error', (_req: Request, res: Response) => {
+  res.status(400).json({ error: 'This is a test error for logging', code: 'TEST_ERROR' });
 });
 
 // API routes

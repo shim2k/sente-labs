@@ -8,19 +8,20 @@ const router = Router();
 router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const gameId = parseInt(req.params.id);
-    const { model = 'gpt-4o' } = req.body;
+    const { type = 'regular' } = req.body;
     
     if (isNaN(gameId)) {
       return res.status(400).json({ error: 'Invalid game ID', code: 'INVALID_GAME_ID' });
     }
 
-    // Validate model parameter
-    if (!['gpt-4o', 'o3'].includes(model)) {
-      return res.status(400).json({ error: 'Invalid model. Must be gpt-4o or o3', code: 'INVALID_MODEL' });
+    // Validate review type
+    if (!['regular', 'elite'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid review type. Must be regular or elite', code: 'INVALID_TYPE' });
     }
 
-    // Get token cost for model
-    const tokenCost = model === 'o3' ? 2 : 1;
+    // Map review type to model and token cost
+    const model = type === 'elite' ? 'gpt-4o' : 'gpt-4o-mini';
+    const tokenCost = type === 'elite' ? 2 : 1;
 
     const client = await pool().connect();
     try {
@@ -37,11 +38,11 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
       const user = userResult.rows[0];
       if (user.tokens < tokenCost) {
         return res.status(400).json({ 
-          error: `Insufficient tokens. Need ${tokenCost} tokens for ${model === 'o3' ? 'Elite' : 'Standard'} review, but you have ${user.tokens}`,
+          error: `Insufficient tokens. Need ${tokenCost} tokens for ${type === 'elite' ? 'Elite' : 'Standard'} review, but you have ${user.tokens}`,
           code: 'INSUFFICIENT_TOKENS',
           required: tokenCost,
           available: user.tokens,
-          model: model
+          type: type
         });
       }
 

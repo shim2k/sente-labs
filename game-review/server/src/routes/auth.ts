@@ -79,6 +79,9 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
 
     const client = await pool().connect();
     try {
+      // Start transaction
+      await client.query('BEGIN');
+
       // Upsert user
       await client.query(`
         INSERT INTO users (auth0_sub) 
@@ -90,16 +93,22 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
       const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
       const userId = userResult.rows[0].id;
 
-      // Upsert Steam identity with AOE4World data
+      // Delete any existing Steam identities for this user AND any other user with this Steam ID
+      const deleteResult = await client.query(`
+        DELETE FROM identities 
+        WHERE (user_id = $1 AND provider = 'steam') OR (provider = 'steam' AND external_id = $2)
+      `, [userId, steamId]);
+      
+      console.log(`Deleted ${deleteResult.rowCount} existing Steam identities for user ${userId} or Steam ID ${steamId}`);
+
+      // Insert new Steam identity with AOE4World data
       await client.query(`
         INSERT INTO identities (user_id, provider, external_id, aoe4world_profile_id, aoe4world_username) 
         VALUES ($1, 'steam', $2, $3, $4)
-        ON CONFLICT (provider, external_id) 
-        DO UPDATE SET 
-          user_id = $1,
-          aoe4world_profile_id = $3,
-          aoe4world_username = $4
       `, [userId, steamId, aoe4worldProfile.profile_id.toString(), aoe4worldProfile.name]);
+
+      // Commit transaction
+      await client.query('COMMIT');
 
       res.json({ 
         success: true,
@@ -110,6 +119,10 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
           rank_level: aoe4worldProfile.rank_level
         }
       });
+    } catch (error) {
+      // Rollback transaction on error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
       client.release();
     }
@@ -141,12 +154,16 @@ router.post('/link/discord', authenticateToken, async (req: AuthRequest, res) =>
       const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
       const userId = userResult.rows[0].id;
 
-      // Upsert Discord identity
+      // Delete any existing Discord identities for this user
+      await client.query(`
+        DELETE FROM identities 
+        WHERE user_id = $1 AND provider = 'discord'
+      `, [userId]);
+
+      // Insert new Discord identity
       await client.query(`
         INSERT INTO identities (user_id, provider, external_id, username) 
         VALUES ($1, 'discord', $2, $3)
-        ON CONFLICT (provider, external_id) 
-        DO UPDATE SET user_id = $1, username = $3
       `, [userId, discordId, username]);
 
       res.json({ success: true });

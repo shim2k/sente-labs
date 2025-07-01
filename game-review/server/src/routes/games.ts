@@ -7,7 +7,7 @@ const router = Router();
 
 router.get('/games', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 20); // Max 20 games
     const cursor = req.query.cursor as string;
 
     const client = await pool().connect();
@@ -133,8 +133,8 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
       const dbStart = Date.now();
       
       // Prepare batch data
-      const gameValues: any[][] = [];
-      const playerValues: any[][] = [];
+      let gameValues: any[][] = [];
+      let playerValues: any[][] = [];
       const gameIds: number[] = [];
       
       for (const match of matches) {
@@ -145,7 +145,7 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
         
         gameIds.push(match.game_id);
         
-        // Prepare game data
+        // Only insert game for the current user
         gameValues.push([
           match.game_id,
           user_id,
@@ -184,14 +184,27 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
         }
       }
       
-      // Check existing games
+      // Check existing games for this user
       if (gameIds.length > 0) {
         const existingGamesResult = await client.query(
-          `SELECT id FROM games WHERE id = ANY($1)`,
-          [gameIds]
+          `SELECT id FROM games WHERE id = ANY($1) AND user_id = $2`,
+          [gameIds, user_id]
         );
         const existingGameIds = new Set(existingGamesResult.rows.map(row => row.id));
-        newCount = gameIds.filter(id => !existingGameIds.has(id)).length;
+        
+        // Filter out games that already exist for this user
+        gameValues = gameValues.filter(gameRow => {
+          const gameId = gameRow[0];
+          return !existingGameIds.has(gameId);
+        });
+        
+        // Also filter playerValues to only include players for games we're inserting
+        playerValues = playerValues.filter(playerRow => {
+          const gameId = playerRow[0];
+          return !existingGameIds.has(gameId);
+        });
+        
+        newCount = gameValues.length;
       }
       
       // Batch upsert games
@@ -208,7 +221,7 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
             id, user_id, map_name, game_mode, duration_seconds, season, patch, server,
             team_size, average_rating, average_mmr, played_at, status, winning_team, winner_names
           ) VALUES ${gameValueStrings}
-          ON CONFLICT (id) DO UPDATE SET
+          ON CONFLICT ON CONSTRAINT games_aoe4world_id_user_unique DO UPDATE SET
             map_name = EXCLUDED.map_name,
             game_mode = EXCLUDED.game_mode,
             duration_seconds = EXCLUDED.duration_seconds,
@@ -224,9 +237,10 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
         `, flatGameValues);
       }
       
-      // Delete existing players for these games (batch operation)
-      if (gameIds.length > 0) {
-        await client.query('DELETE FROM game_players WHERE game_id = ANY($1)', [gameIds]);
+      // Delete existing players for the games we're inserting (batch operation)
+      const gamesToInsert = gameValues.map(row => row[0]);
+      if (gamesToInsert.length > 0) {
+        await client.query('DELETE FROM game_players WHERE game_id = ANY($1)', [gamesToInsert]);
       }
       
       // Batch insert players
@@ -269,6 +283,16 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
       } catch (rollbackError) {
         console.error('Rollback error:', rollbackError);
       }
+      
+      // Check if it's a column error
+      if (error instanceof Error && 'code' in error) {
+        const pgError = error as any;
+        if (pgError.code === '42703') { // undefined_column
+          console.error('Missing column:', pgError.message);
+          throw new Error(`Database schema is outdated. Missing column: ${pgError.message}`);
+        }
+      }
+      
       throw error;
     } finally {
       client.release();

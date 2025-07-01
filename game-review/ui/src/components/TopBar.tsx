@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -7,6 +8,7 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const { user, logout, tokens } = useAuth();
+  const navigate = useNavigate();
   
   // Extract user's name from Auth0 user object
   const userName = user?.name || user?.nickname || user?.email?.split('@')[0] || 'User';
@@ -45,21 +47,24 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
           )}
           
           {/* Logo/Brand */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-orange-500 via-red-600 to-yellow-700 flex items-center justify-center shadow-lg shadow-orange-500/30">
+          <div 
+            className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group"
+            onClick={() => navigate('/games')}
+          >
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-orange-500 via-red-600 to-yellow-700 flex items-center justify-center shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 transition-all duration-200">
               <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
               </svg>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-gray-100 font-bold tracking-wide text-sm sm:text-lg lg:text-xl leading-none">
+              <h1 className="text-gray-100 font-bold tracking-wide text-sm sm:text-lg lg:text-xl leading-none group-hover:text-white transition-colors duration-200">
                 <span className="hidden sm:inline">AOE4 Game Review</span>
                 <span className="sm:hidden">AOE4</span>
-                <span className="ml-1 sm:ml-2 text-xs font-medium text-orange-400 bg-orange-400/10 px-1 sm:px-2 py-0.5 rounded-full border border-orange-400/20">
+                <span className="ml-1 sm:ml-2 text-xs font-medium text-orange-400 bg-orange-400/10 px-1 sm:px-2 py-0.5 rounded-full border border-orange-400/20 group-hover:bg-orange-400/20 group-hover:border-orange-400/30 transition-all duration-200">
                   BETA
                 </span>
               </h1>
-              <span className="hidden sm:block text-xs text-gray-400 leading-none mt-0.5">AI-Powered Match Analysis</span>
+              <span className="hidden sm:block text-xs text-gray-400 leading-none mt-0.5 group-hover:text-gray-300 transition-colors duration-200">AI-Powered Match Analysis</span>
             </div>
           </div>
           
