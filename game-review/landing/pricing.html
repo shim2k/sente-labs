@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - Sente AI</title>
+    <meta name="description" content="Pricing for Sente AI - AI-powered game reviews and analysis platform.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-gray-900/95 backdrop-blur-md shadow-lg border-b border-blue-900/50">
+        <div class="max-w-7xl mx-auto py-4 px-6 flex justify-between items-center">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent cursor-pointer" onclick="window.location.href='index.html'">
+                Sente AI
+            </h1>
+            <nav class="flex space-x-6 items-center">
+                <a href="index.html" class="text-gray-300 hover:text-blue-400 transition-colors">Home</a>
+                <a href="terms.html" class="text-gray-300 hover:text-blue-400 transition-colors">Terms</a>
+                <a href="https://aoe4.senteai.com/games" class="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white px-6 py-2 rounded-full transition-all duration-300 font-semibold">
+                    Launch App
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-6 py-16">
+        <div class="text-center mb-16">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                <span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                    Simple, Transparent Pricing
+                </span>
+            </h1>
+            <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                Choose the token package that fits your needs. No subscriptions, no hidden fees. 
+                Pay only for the AI analysis you use.
+            </p>
+        </div>
+
+        <!-- Token Packages -->
+        <div class="grid md:grid-cols-3 gap-8 mb-16 max-w-4xl mx-auto">
+            <!-- Small Package -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10">
+                <div class="text-center mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-2">Small</h3>
+                    <div class="text-3xl font-bold text-blue-400 mb-1">$2</div>
+                    <div class="text-gray-400">5 Analysis Tokens</div>
+                </div>
+                <div class="mb-6">
+                    <p class="text-gray-300 text-sm leading-relaxed">Perfect for trying out our AI-powered game analysis</p>
+                </div>
+                <ul class="space-y-3 text-gray-300 mb-6">
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        5 Game Reviews
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        AI-powered insights
+                    </li>
+                </ul>
+                <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                    Get Started
+                </a>
+            </div>
+
+            <!-- Medium Package - Popular -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border-2 border-blue-500 hover:border-blue-400 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 relative">
+                <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold px-4 py-1 rounded-full">
+                        Most Popular
+                    </span>
+                </div>
+                <div class="text-center mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-2">Medium</h3>
+                    <div class="text-3xl font-bold text-blue-400 mb-1">$5</div>
+                    <div class="text-gray-400">20 Analysis Tokens</div>
+                </div>
+                <div class="mb-6">
+                    <p class="text-gray-300 text-sm leading-relaxed">Great value for regular players who want consistent feedback</p>
+                </div>
+                <ul class="space-y-3 text-gray-300 mb-6">
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        20 Game Reviews
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Best value per token
+                    </li>
+                </ul>
+                <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                    Get Started
+                </a>
+            </div>
+
+            <!-- Large Package -->
+            <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10">
+                <div class="text-center mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-2">Large</h3>
+                    <div class="text-3xl font-bold text-blue-400 mb-1">$10</div>
+                    <div class="text-gray-400">45 Analysis Tokens</div>
+                </div>
+                <div class="mb-6">
+                    <p class="text-gray-300 text-sm leading-relaxed">Best for serious players who want to analyze multiple games</p>
+                </div>
+                <ul class="space-y-3 text-gray-300 mb-6">
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        45 Game Reviews
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Maximum value
+                    </li>
+                </ul>
+                <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                    Get Started
+                </a>
+            </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 mb-16">
+            <h2 class="text-2xl font-semibold text-center mb-8">How Token Pricing Works</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-blue-400 font-bold">1</span>
+                    </div>
+                    <h3 class="font-semibold mb-2">Purchase Tokens</h3>
+                    <p class="text-gray-400 text-sm">Buy a token package that suits your needs</p>
+                </div>
+                <div class="text-center">
+                    <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-blue-400 font-bold">2</span>
+                    </div>
+                    <h3 class="font-semibold mb-2">Use for Analysis</h3>
+                    <p class="text-gray-400 text-sm">Each game review costs 1 token</p>
+                </div>
+                <div class="text-center">
+                    <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-blue-400 font-bold">3</span>
+                    </div>
+                    <h3 class="font-semibold mb-2">Get Results</h3>
+                    <p class="text-gray-400 text-sm">Receive detailed AI-powered analysis</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mb-16">
+            <h2 class="text-3xl font-semibold text-center mb-8">
+                <span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                    Frequently Asked Questions
+                </span>
+            </h2>
+            <div class="space-y-4 max-w-3xl mx-auto">
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6">
+                    <h3 class="text-lg font-semibold mb-2">Do tokens expire?</h3>
+                    <p class="text-gray-400">No, tokens never expire. You can use them whenever you want to analyze a game.</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6">
+                    <h3 class="text-lg font-semibold mb-2">Can I get a refund?</h3>
+                    <p class="text-gray-400">Yes, we offer refunds for unused tokens within 30 days of purchase.</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6">
+                    <h3 class="text-lg font-semibold mb-2">What games are supported?</h3>
+                    <p class="text-gray-400">Currently, we support Age of Empires IV. More games are coming soon!</p>
+                </div>
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-lg p-6">
+                    <h3 class="text-lg font-semibold mb-2">How long does analysis take?</h3>
+                    <p class="text-gray-400">Most game analyses are completed within 2-5 minutes.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Section -->
+        <div class="text-center">
+            <h2 class="text-2xl font-semibold mb-4">Ready to Level Up Your Game?</h2>
+            <p class="text-gray-400 mb-6">Start analyzing your matches today and see immediate improvement in your gameplay.</p>
+            <a href="https://aoe4.senteai.com/games" class="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold py-4 px-8 rounded-full shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105">
+                Launch Sente AI
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 border-t border-gray-700 py-8 mt-16">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <p class="text-gray-400">
+                &copy; 2024 Sente AI. All rights reserved.
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

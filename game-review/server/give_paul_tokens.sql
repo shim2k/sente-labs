@@ -1,0 +1,1 @@
+UPDATE users SET tokens = tokens + 100 WHERE id = (SELECT u.id FROM users u LEFT JOIN identities i ON u.id = i.user_id WHERE COALESCE(i.aoe4world_username, i.username, u.email) ILIKE '%Paul%' LIMIT 1);

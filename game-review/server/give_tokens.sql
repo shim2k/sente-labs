@@ -1,0 +1,1 @@
+UPDATE users SET tokens = tokens + 30 WHERE id = (SELECT u.id FROM users u JOIN identities i ON u.id = i.user_id WHERE i.aoe4world_username = 'WhiteWeni' LIMIT 1);

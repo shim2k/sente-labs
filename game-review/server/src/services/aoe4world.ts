@@ -92,6 +92,30 @@ export async function searchAOE4WorldProfile(steamId: string): Promise<AOE4World
   }
 }
 
+export async function fetchAOE4WorldProfile(profileId: string): Promise<AOE4WorldPlayer | null> {
+  try {
+    const response = await fetch(`https://aoe4world.com/api/v0/players/${profileId}`);
+    
+    if (!response.ok) {
+      throw new Error(`AOE4World API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json() as AOE4WorldPlayer;
+    
+    // The API returns the player object directly
+    if (data.profile_id) {
+      return data;
+    }
+    
+    return null;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch AOE4World profile: ${error.message}`);
+    }
+    throw new Error('Failed to fetch AOE4World profile: Unknown error');
+  }
+}
+
 export async function fetchRecentMatches(profileId: string): Promise<AOE4WorldMatch[]> {
   try {
     const response = await fetch(`https://aoe4world.com/api/v0/players/${profileId}/games?count=20`);
@@ -118,19 +142,56 @@ export async function fetchRecentMatches(profileId: string): Promise<AOE4WorldMa
 
 export async function fetchGameSummary(profileId: string, steamId: string, gameId: string): Promise<any> {
   try {
-    const response = await fetch(`https://aoe4world.com/players/${profileId}-${steamId}/games/${gameId}/summary`);
+    const url = `https://aoe4world.com/players/${profileId}-${steamId}/games/${gameId}/summary`;
+    console.log(`🌐 Requesting game summary from: ${url}`);
+    
+    const response = await fetch(url);
+    
+    console.log(`📡 AOE4World response: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       throw new Error(`AOE4World API error: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    // Log the structure of the response
+    const keys = Object.keys(data || {});
+    const dataObj = data as any; // Type assertion since we know it's JSON
+    const hasDetailedData = dataObj.events || dataObj.timeline || dataObj.matchEvents || dataObj.players?.some((p: any) => p.buildOrder);
+    
+    console.log(`📋 Response keys: [${keys.join(', ')}]`);
+    console.log(`🔍 Contains detailed data: ${hasDetailedData}`);
+    
     return data;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to fetch game summary: ${error.message}`);
     }
     throw new Error('Failed to fetch game summary: Unknown error');
+  }
+}
+
+export async function fetchReplayFile(profileId: string, steamId: string, gameId: string): Promise<Buffer | null> {
+  try {
+    const response = await fetch(`https://aoe4world.com/players/${profileId}-${steamId}/games/${gameId}/replay`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`No replay file available for game ${gameId}`);
+        return null;
+      }
+      throw new Error(`AOE4World API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    console.log(`Fetched replay file for game ${gameId}: ${buffer.length} bytes`);
+    return buffer;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch replay file: ${error.message}`);
+    }
+    throw new Error('Failed to fetch replay file: Unknown error');
   }
 }
 

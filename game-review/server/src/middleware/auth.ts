@@ -38,6 +38,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.log(`No token found for request: ${req.url}, method: ${req.method}, headers: ${JSON.stringify(req.headers)}, body: ${JSON.stringify(req.body)}`);
     return res.status(401).json({ error: 'Access token required', code: 'MISSING_TOKEN' });
   }
 

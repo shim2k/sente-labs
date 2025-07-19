@@ -13,6 +13,8 @@ import responseLogger from './middleware/responseLogger';
 import authRoutes from './routes/auth';
 import gamesRoutes from './routes/games';
 import reviewsRoutes from './routes/reviews';
+import adminRoutes from './routes/admin';
+import waitlistRoutes from './routes/waitlist';
 
 // Debug environment variables
 console.log('Environment variables loaded:');
@@ -25,7 +27,19 @@ console.log('SQS_QUEUE_URL:', process.env.SQS_QUEUE_URL);
 const PORT = parseInt(process.env.PORT || '4000', 10);
 
 const app = express();
-app.use(cors());
+
+// Configure CORS to allow requests from both domains
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',  // Local development
+    'https://aoe4.senteai.com',  // Main app domain
+    'https://senteai.com',  // Landing page domain
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Add response logging middleware before routes
@@ -54,6 +68,9 @@ app.get('/test-error', (_req: Request, res: Response) => {
 app.use('/api/v1', authRoutes);
 app.use('/api/v1', gamesRoutes);
 app.use('/api/v1', reviewsRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1', waitlistRoutes);
+// app.use('/api/v1/replays', replaysRoutes); // Removed - replay-parser service not available
 
 const server = createServer(app);
 

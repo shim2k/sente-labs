@@ -1,12 +1,34 @@
 import { Router } from 'express';
 import { pool } from '../db/connection';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { searchAOE4WorldProfile } from '../services/aoe4world';
+import { searchAOE4WorldProfile, fetchAOE4WorldProfile } from '../services/aoe4world';
 
 const router = Router();
 
+router.get('/debug-user', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json({
+      auth: req.auth,
+      sub: req.auth?.sub,
+      email: req.auth?.email,
+      senteEmail: req.auth?.['https://senteai.com/email']
+    });
+  } catch (error) {
+    console.error('Debug user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/identities', authenticateToken, async (req: AuthRequest, res) => {
   try {
+    // Debug user info for admin check
+    console.log('=== USER DEBUG INFO ===');
+    console.log('Auth object:', req.auth);
+    console.log('Email from auth.email:', req.auth?.email);
+    console.log('Email from custom claim:', req.auth?.['https://senteai.com/email']);
+    console.log('User sub:', req.auth?.sub);
+    console.log('======================');
+    
     const client = await pool().connect();
     try {
       // Get user identities
@@ -132,6 +154,94 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
+router.post('/link/aoe4world', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { profileId } = req.body;
+    
+    if (!profileId) {
+      return res.status(400).json({ error: 'AOE4World profile ID required', code: 'MISSING_PROFILE_ID' });
+    }
+
+    // Validate that profileId is a number
+    const numericProfileId = parseInt(profileId);
+    if (isNaN(numericProfileId)) {
+      return res.status(400).json({ error: 'Invalid profile ID format', code: 'INVALID_PROFILE_ID' });
+    }
+
+    // Fetch AOE4World profile
+    let aoe4worldProfile;
+    try {
+      aoe4worldProfile = await fetchAOE4WorldProfile(profileId);
+    } catch (error) {
+      console.error('AOE4World fetch error:', error);
+      return res.status(400).json({ 
+        error: 'Failed to fetch AOE4World profile. Please check your profile ID.',
+        code: 'AOE4WORLD_FETCH_ERROR' 
+      });
+    }
+
+    if (!aoe4worldProfile) {
+      return res.status(404).json({ 
+        error: 'AOE4World profile not found. Please check your profile ID.',
+        code: 'AOE4WORLD_PROFILE_NOT_FOUND' 
+      });
+    }
+
+    const client = await pool().connect();
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+
+      // Upsert user
+      await client.query(`
+        INSERT INTO users (auth0_sub) 
+        VALUES ($1) 
+        ON CONFLICT (auth0_sub) DO NOTHING
+      `, [req.auth?.sub]);
+
+      // Get user ID
+      const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
+      const userId = userResult.rows[0].id;
+
+      // Delete any existing Steam identities for this user AND any other user with this profile ID
+      const deleteResult = await client.query(`
+        DELETE FROM identities 
+        WHERE (user_id = $1 AND provider = 'steam') OR (provider = 'steam' AND aoe4world_profile_id = $2)
+      `, [userId, profileId]);
+      
+      console.log(`Deleted ${deleteResult.rowCount} existing identities for user ${userId} or profile ID ${profileId}`);
+
+      // Insert new Steam identity with AOE4World data (using profile ID as external_id)
+      await client.query(`
+        INSERT INTO identities (user_id, provider, external_id, aoe4world_profile_id, aoe4world_username) 
+        VALUES ($1, 'steam', $2, $3, $4)
+      `, [userId, aoe4worldProfile.steam_id || profileId, profileId, aoe4worldProfile.name]);
+
+      // Commit transaction
+      await client.query('COMMIT');
+
+      res.json({ 
+        success: true,
+        aoe4world_profile: {
+          profile_id: aoe4worldProfile.profile_id,
+          username: aoe4worldProfile.name,
+          rating: aoe4worldProfile.rating,
+          rank_level: aoe4worldProfile.rank_level
+        }
+      });
+    } catch (error) {
+      // Rollback transaction on error
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('AOE4World link error:', error);
+    res.status(500).json({ error: 'Internal server error', code: 'AOE4WORLD_LINK_ERROR' });
+  }
+});
+
 router.post('/link/discord', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { discordId, username } = req.body;
@@ -173,6 +283,38 @@ router.post('/link/discord', authenticateToken, async (req: AuthRequest, res) =>
   } catch (error) {
     console.error('Discord link error:', error);
     res.status(500).json({ error: 'Internal server error', code: 'DISCORD_LINK_ERROR' });
+  }
+});
+
+router.delete('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const client = await pool().connect();
+    try {
+      // Get user ID
+      const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
+      }
+      
+      const userId = userResult.rows[0].id;
+
+      // Delete Steam identity for this user
+      const deleteResult = await client.query(`
+        DELETE FROM identities 
+        WHERE user_id = $1 AND provider = 'steam'
+      `, [userId]);
+
+      if (deleteResult.rowCount === 0) {
+        return res.status(404).json({ error: 'Steam account not linked', code: 'STEAM_NOT_LINKED' });
+      }
+
+      res.json({ success: true });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Steam unlink error:', error);
+    res.status(500).json({ error: 'Internal server error', code: 'STEAM_UNLINK_ERROR' });
   }
 });
 

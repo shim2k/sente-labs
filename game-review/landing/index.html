@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sente AI - AI-Powered Game Reviews That Make You Better</title>
+    <meta name="description"
+        content="Get AI-powered match analysis and strategic recommendations to improve your gameplay. Currently featuring Age of Empires IV.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow-pulse': 'glow-pulse 4s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        'fade-in-up': {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        'float': {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-10px) rotate(1deg)' },
+                        },
+                        'glow-pulse': {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)' },
+                            '50%': { boxShadow: '0 0 40px rgba(59, 130, 246, 0.6)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .animate-fade-in-up {
+            opacity: 0;
+            animation: fade-in-up 0.8s ease-out forwards;
+        }
+
+        .animation-delay-150 {
+            animation-delay: 150ms;
+        }
+
+        .animation-delay-200 {
+            animation-delay: 200ms;
+        }
+
+        .animation-delay-300 {
+            animation-delay: 300ms;
+        }
+
+        .animation-delay-400 {
+            animation-delay: 400ms;
+        }
+
+        .animation-delay-600 {
+            animation-delay: 600ms;
+        }
+
+        .animation-delay-700 {
+            animation-delay: 700ms;
+        }
+
+        .animation-delay-800 {
+            animation-delay: 800ms;
+        }
+
+        .animation-delay-1000 {
+            animation-delay: 1000ms;
+        }
+
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+
+        /* Simple mobile menu */
+        #mobile-nav {
+            display: none;
+        }
+        
+        #mobile-nav.menu-open {
+            display: block;
+        }
+        
+
+        /* Amazing new animations for the redesigned section */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+        }
+
+        @keyframes float-reverse {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(20px) rotate(-2deg); }
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(100px, 100px); }
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.5; transform: scaleX(1); }
+            50% { opacity: 1; transform: scaleX(1.1); }
+        }
+
+        @keyframes glow-in {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes gradient-x {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* 3D Transform utilities */
+        .perspective-1000 { perspective: 1000px; }
+        .preserve-3d { transform-style: preserve-3d; }
+        .transform-gpu { transform: translateZ(0); }
+        
+        /* Custom 3D transforms */
+        .group:hover .group-hover\:rotateY-6 { transform: rotateY(6deg); }
+        .group:hover .group-hover\:rotateX-6 { transform: rotateX(6deg); }
+        .group:hover .group-hover\:rotateY-15 { transform: rotateY(15deg); }
+        .group:hover .group-hover\:rotate-6 { transform: rotate(6deg); }
+        .group:hover .group-hover\:rotate-12 { transform: rotate(12deg); }
+        .group:hover .group-hover\:translateZ-4 { transform: translateZ(4px); }
+
+        /* Enhanced gradient animations */
+        .animate-gradient-x {
+            background-size: 200% 200%;
+            animation: gradient-x 3s ease infinite;
+        }
+
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-float-reverse { animation: float-reverse 8s ease-in-out infinite; }
+        .animate-glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+        .animate-glow-in { animation: glow-in 1s ease-out forwards; }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen overflow-x-hidden" style="scroll-behavior: smooth;">
+    <!-- Header -->
+    <header
+        class="bg-gray-900/95 backdrop-blur-md shadow-lg fixed top-0 left-0 right-0 z-50 border-b border-blue-900/50">
+        <div class="max-w-7xl mx-auto py-3 px-6 flex justify-between items-center">
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent cursor-pointer"
+                onclick="scrollToSection('hero')">
+                Sente AI
+            </h1>
+
+            <!-- Desktop Navigation -->
+            <nav class="hidden md:flex space-x-8 items-center">
+                <button onclick="scrollToSection('features')"
+                    class="text-gray-300 hover:text-blue-400 cursor-pointer text-base transition-colors">
+                    Features
+                </button>
+                <button onclick="scrollToSection('how-it-works')"
+                    class="text-gray-300 hover:text-blue-400 cursor-pointer text-base transition-colors">
+                    How It Works
+                </button>
+                <button onclick="scrollToSection('aoe4')"
+                    class="text-gray-300 hover:text-blue-400 cursor-pointer text-base transition-colors">
+                    AOE4 Reviews
+                </button>
+                <button onclick="scrollToSection('pricing')"
+                    class="text-gray-300 hover:text-blue-400 cursor-pointer text-base transition-colors">
+                    Pricing
+                </button>
+                <button onclick="window.location.href='https://aoe4.senteai.com/games'"
+                    class="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white px-4 py-1.5 rounded-full transition-all duration-300 text-base font-semibold">
+                    Launch App
+                </button>
+            </nav>
+
+            <!-- Mobile Menu Button -->
+            <div class="md:hidden">
+                <button id="mobile-menu-btn"
+                    class="relative w-10 h-10 p-2 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation"
+                    role="button" 
+                    aria-label="Toggle navigation menu"
+                    type="button">
+                    <span
+                        class="hamburger-line absolute block w-6 h-0.5 bg-current transform transition-all duration-300 ease-in-out"
+                        style="top: 50%; left: 50%; margin-left: -12px; margin-top: -1px; transform: translateY(-8px);"></span>
+                    <span
+                        class="hamburger-line absolute block w-6 h-0.5 bg-current transform transition-all duration-300 ease-in-out"
+                        style="top: 50%; left: 50%; margin-left: -12px; margin-top: -1px;"></span>
+                    <span
+                        class="hamburger-line absolute block w-6 h-0.5 bg-current transform transition-all duration-300 ease-in-out"
+                        style="top: 50%; left: 50%; margin-left: -12px; margin-top: -1px; transform: translateY(8px);"></span>
+                </button>
+            </div>
+        </div>
+
+        
+        <!-- Mobile Navigation Overlay -->
+        <nav id="mobile-nav" class="md:hidden absolute top-full left-0 w-full bg-gray-800/95 backdrop-blur-sm border-t border-blue-800/50 z-50">
+            <div class="py-6 space-y-1">
+                <button onclick="scrollToSection('features')"
+                    class="block w-full text-gray-300 hover:text-blue-400 hover:bg-blue-900/20 cursor-pointer text-base py-3 px-6">
+                    <span class="flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Features</span>
+                    </span>
+                </button>
+                <button onclick="scrollToSection('how-it-works')"
+                    class="block w-full text-gray-300 hover:text-blue-400 hover:bg-blue-900/20 cursor-pointer text-base py-3 px-6">
+                    <span class="flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.51-1.31c-.562-.649-1.413-1.076-2.353-1.253V5z" clip-rule="evenodd" />
+                        </svg>
+                        <span>How It Works</span>
+                    </span>
+                </button>
+                <button onclick="scrollToSection('aoe4')"
+                    class="block w-full text-gray-300 hover:text-blue-400 hover:bg-blue-900/20 cursor-pointer text-base py-3 px-6">
+                    <span class="flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z" />
+                        </svg>
+                        <span>AOE4 Reviews</span>
+                    </span>
+                </button>
+                <button onclick="scrollToSection('pricing')"
+                    class="block w-full text-gray-300 hover:text-blue-400 hover:bg-blue-900/20 cursor-pointer text-base py-3 px-6">
+                    <span class="flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.51-1.31c-.562-.649-1.413-1.076-2.353-1.253V5z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Pricing</span>
+                    </span>
+                </button>
+                <div class="pt-4">
+                    <button onclick="window.location.href='https://aoe4.senteai.com/games'"
+                        class="mx-auto bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white px-6 py-3 rounded-full text-base font-semibold flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Launch App</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero" class="relative min-h-screen flex items-center pt-20"
+        style="background-image: linear-gradient(to bottom, rgba(17, 24, 39, 0.8), rgba(17, 24, 39, 0.95)), url('/images/aoe4-battle.jpg'); background-size: cover; background-position: center;">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-blue-900/30 to-gray-900"></div>
+        <div class="container mx-auto px-6 text-center relative z-10">
+            <div class="max-w-4xl mx-auto mb-40">
+                <!-- Sente Games Image -->
+                <div class="mb-8 flex justify-center">
+                    <div class="relative transform animate-float">
+                        <!-- Floating background effects -->
+                        <div class="absolute -inset-8">
+                            <div
+                                class="absolute top-0 left-0 w-20 h-20 bg-blue-500/20 rounded-full blur-2xl animate-pulse animation-delay-1000">
+                            </div>
+                            <div
+                                class="absolute bottom-0 right-0 w-24 h-24 bg-purple-500/20 rounded-full blur-3xl animate-bounce animation-delay-2000">
+                            </div>
+                        </div>
+
+                        <!-- Glowing border effect -->
+                        <div
+                            class="absolute -inset-2 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-400 rounded-2xl opacity-30 blur-lg animate-glow-pulse">
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+                    <span
+                        class="block bg-gradient-to-r from-white via-blue-100 to-gray-200 bg-clip-text text-transparent">
+                        AI-Powered Game Reviews
+                    </span>
+                    <span
+                        class="block bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        That Make You Better
+                    </span>
+                </h2>
+                <p class="mb-8 text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto">
+                    Get personalized match analysis and strategic recommendations to improve your gameplay. Currently
+                    featuring Age of Empires IV.
+                </p>
+                <div class="flex flex-col md:flex-row justify-center gap-4">
+                    <button onclick="window.location.href='https://aoe4.senteai.com/games'"
+                        class="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-xl hover:shadow-blue-500/25 transition-all duration-300 text-lg transform hover:scale-105">
+                        Try AOE4 Game Reviews
+                    </button>
+                    <button onclick="scrollToSection('features')"
+                        class="bg-transparent border-2 border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-gray-900 font-bold py-4 px-8 rounded-full transition-all duration-300 text-lg">
+                        Learn More
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-32 bg-gradient-to-b from-gray-800 via-gray-900 to-black relative overflow-hidden">
+        <!-- Enhanced Animated Background -->
+        <div class="absolute inset-0">
+            <!-- Primary gradient overlay -->
+            <div class="absolute h-full w-full bg-gradient-to-br from-blue-900/20 via-purple-900/10 to-cyan-900/15">
+            </div>
+            
+            <!-- Floating orbs with complex animations -->
+            <div class="absolute top-20 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float animation-delay-1000"></div>
+            <div class="absolute bottom-20 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float-reverse animation-delay-2000"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse animation-delay-4000"></div>
+            
+            <!-- Animated grid pattern -->
+            <div class="absolute inset-0 opacity-10">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle at 25% 25%, #3b82f6 2px, transparent 2px), radial-gradient(circle at 75% 75%, #8b5cf6 2px, transparent 2px); background-size: 100px 100px; animation: gridMove 20s linear infinite;"></div>
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <!-- Spectacular Header Section -->
+            <div class="text-center mb-20 relative">
+                <!-- Floating decoration elements -->
+                <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-glow-pulse"></div>
+                
+                <!-- Main title with enhanced animations -->
+                <div class="relative inline-block">
+                    <!-- Glowing background effect for title -->
+                    <div class="absolute -inset-8 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 rounded-3xl blur-2xl opacity-0 animate-glow-in animation-delay-300"></div>
+                    
+                    <h3 class="relative text-4xl md:text-6xl lg:text-7xl font-black mb-6 animate-fade-in-up">
+                        <span class="bg-gradient-to-r from-blue-400 via-purple-500 to-cyan-400 bg-clip-text text-transparent animate-gradient-x">
+                            Level Up Your Game
+                        </span>
+                        <span class="block mt-4 bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent animate-fade-in-up animation-delay-300">
+                            with AI Analysis
+                        </span>
+                    </h3>
+                </div>
+                
+                <!-- Enhanced subtitle with typewriter effect -->
+                <div class="relative max-w-4xl mx-auto">
+                    <p class="text-xl md:text-2xl text-gray-300 leading-relaxed animate-fade-in-up animation-delay-400">
+                        Transform your gameplay with 
+                        <span class="text-blue-400 font-semibold">cutting-edge AI insights</span>, 
+                        <span class="text-purple-400 font-semibold">personalized strategies</span>, and 
+                        <span class="text-cyan-400 font-semibold">data-driven recommendations</span>
+                    </p>
+                    
+                    <!-- Decorative elements -->
+                    <div class="flex justify-center items-center space-x-4 mt-8 animate-fade-in-up animation-delay-600">
+                        <div class="w-8 h-0.5 bg-gradient-to-r from-transparent to-blue-400"></div>
+                        <div class="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                        <div class="w-3 h-3 bg-purple-400 rounded-full animate-pulse animation-delay-200"></div>
+                        <div class="w-3 h-3 bg-cyan-400 rounded-full animate-pulse animation-delay-400"></div>
+                        <div class="w-8 h-0.5 bg-gradient-to-l from-transparent to-cyan-400"></div>
+                    </div>
+                </div>
+                
+                <!-- Floating icons around the title -->
+                <div class="absolute top-0 left-0 w-full h-full pointer-events-none">
+                    <div class="absolute top-10 left-10 w-6 h-6 text-blue-400 animate-float animation-delay-1000">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="absolute top-20 right-16 w-8 h-8 text-purple-400 animate-float-reverse animation-delay-1500">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <div class="absolute bottom-10 left-20 w-5 h-5 text-cyan-400 animate-float animation-delay-2000">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revolutionary Feature Cards -->
+            <div class="grid md:grid-cols-3 gap-8 lg:gap-12">
+                <!-- Feature 1 - Enhanced 3D Card -->
+                <div class="group relative perspective-1000 animate-fade-in-up animation-delay-800">
+                    <!-- 3D Card Container -->
+                    <div class="relative transform-gpu transition-all duration-700 ease-out group-hover:rotateY-6 group-hover:rotateX-6 group-hover:scale-105 preserve-3d">
+                        <!-- Card Background with depth -->
+                        <div class="absolute -inset-2 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-3xl opacity-0 group-hover:opacity-100 blur-xl transition-all duration-700 transform group-hover:scale-110"></div>
+                        
+                        <!-- Main Card -->
+                        <div class="relative bg-gradient-to-br from-gray-800/90 via-gray-900/95 to-black/90 backdrop-blur-xl rounded-3xl p-8 border border-gray-700/50 group-hover:border-blue-400/50 transition-all duration-700 overflow-hidden">
+                            <!-- Animated background patterns -->
+                            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                                <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-cyan-500/5"></div>
+                                <div class="absolute top-1/4 right-0 w-32 h-32 bg-blue-400/10 rounded-full blur-2xl animate-pulse"></div>
+                                <div class="absolute bottom-1/4 left-0 w-24 h-24 bg-purple-400/10 rounded-full blur-2xl animate-pulse animation-delay-300"></div>
+                            </div>
+                            
+                            <!-- Icon Section with Enhanced 3D Effect -->
+                            <div class="relative mb-8 flex justify-center">
+                                <div class="relative transform transition-all duration-700 group-hover:scale-110 group-hover:rotateY-15">
+                                    <!-- Icon glow background -->
+                                    <div class="absolute -inset-6 bg-gradient-to-r from-blue-400 via-green-400 to-blue-500 opacity-0 group-hover:opacity-60 blur-2xl transition-all duration-700 rounded-full"></div>
+                                    
+                                    <!-- Icon container -->
+                                    <div class="relative bg-gradient-to-br from-blue-500 via-green-400 to-blue-600 p-1 rounded-2xl transform transition-all duration-700 group-hover:rotate-6">
+                                        <div class="bg-gray-900 rounded-2xl p-6 transform transition-all duration-500 group-hover:bg-gray-800">
+                                            <svg class="w-16 h-16 text-green-400 transform transition-all duration-700 group-hover:scale-110 group-hover:rotate-12" fill="none" viewBox="0 0 24 24">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Floating particles -->
+                                    <div class="absolute -top-2 -right-2 w-3 h-3 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-200"></div>
+                                    <div class="absolute -bottom-2 -left-2 w-2 h-2 bg-green-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-400"></div>
+                                </div>
+                            </div>
+
+                            <!-- Content Section -->
+                            <div class="relative text-center transform transition-all duration-700 group-hover:translateZ-4">
+                                <h4 class="text-2xl font-black mb-4 bg-gradient-to-r from-white via-blue-100 to-green-100 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:via-green-300 group-hover:to-blue-300 transition-all duration-700">
+                                    Personalized Strategic Insights
+                                </h4>
+                                <p class="text-gray-400 text-lg leading-relaxed group-hover:text-gray-300 transition-colors duration-700">
+                                    Get <span class="text-blue-400 font-semibold">AI-powered recommendations</span> tailored to your unique playstyle, highlighting your <span class="text-green-400 font-semibold">strengths to amplify</span> and <span class="text-purple-400 font-semibold">areas to master</span>.
+                                </p>
+                                
+                                <!-- Stats/Features list -->
+                                <div class="mt-6 space-y-2 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-700 animation-delay-300">
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-blue-300">
+                                        <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                        <span>Build Order Analysis</span>
+                                    </div>
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-green-300">
+                                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse animation-delay-200"></div>
+                                        <span>Unit Composition Tips</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature 2 - Enhanced 3D Card -->
+                <div class="group relative perspective-1000 animate-fade-in-up animation-delay-1000">
+                    <!-- 3D Card Container -->
+                    <div class="relative transform-gpu transition-all duration-700 ease-out group-hover:rotateY-6 group-hover:rotateX-6 group-hover:scale-105 preserve-3d">
+                        <!-- Card Background with depth -->
+                        <div class="absolute -inset-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-3xl opacity-0 group-hover:opacity-100 blur-xl transition-all duration-700 transform group-hover:scale-110"></div>
+                        
+                        <!-- Main Card -->
+                        <div class="relative bg-gradient-to-br from-gray-800/90 via-gray-900/95 to-black/90 backdrop-blur-xl rounded-3xl p-8 border border-gray-700/50 group-hover:border-purple-400/50 transition-all duration-700 overflow-hidden">
+                            <!-- Animated background patterns -->
+                            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                                <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5"></div>
+                                <div class="absolute top-1/4 right-0 w-32 h-32 bg-purple-400/10 rounded-full blur-2xl animate-pulse"></div>
+                                <div class="absolute bottom-1/4 left-0 w-24 h-24 bg-blue-400/10 rounded-full blur-2xl animate-pulse animation-delay-300"></div>
+                            </div>
+                            
+                            <!-- Icon Section with Enhanced 3D Effect -->
+                            <div class="relative mb-8 flex justify-center">
+                                <div class="relative transform transition-all duration-700 group-hover:scale-110 group-hover:rotateY-15">
+                                    <!-- Icon glow background -->
+                                    <div class="absolute -inset-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-60 blur-2xl transition-all duration-700 rounded-full"></div>
+                                    
+                                    <!-- Icon container -->
+                                    <div class="relative bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-1 rounded-2xl transform transition-all duration-700 group-hover:rotate-6">
+                                        <div class="bg-gray-900 rounded-2xl p-6 transform transition-all duration-500 group-hover:bg-gray-800">
+                                            <svg class="w-16 h-16 text-blue-400 transform transition-all duration-700 group-hover:scale-110 group-hover:rotate-12" fill="none" viewBox="0 0 24 24">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Floating particles -->
+                                    <div class="absolute -top-2 -right-2 w-3 h-3 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-200"></div>
+                                    <div class="absolute -bottom-2 -left-2 w-2 h-2 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-400"></div>
+                                </div>
+                            </div>
+
+                            <!-- Content Section -->
+                            <div class="relative text-center transform transition-all duration-700 group-hover:translateZ-4">
+                                <h4 class="text-2xl font-black mb-4 bg-gradient-to-r from-white via-purple-100 to-blue-100 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:via-purple-300 group-hover:to-pink-300 transition-all duration-700">
+                                    Detailed Match Breakdowns
+                                </h4>
+                                <p class="text-gray-400 text-lg leading-relaxed group-hover:text-gray-300 transition-colors duration-700">
+                                    Dive deep into <span class="text-blue-400 font-semibold">comprehensive analysis</span> of every match aspect including <span class="text-purple-400 font-semibold">economy management</span>, <span class="text-pink-400 font-semibold">military composition</span>, and crucial turning points.
+                                </p>
+                                
+                                <!-- Stats/Features list -->
+                                <div class="mt-6 space-y-2 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-700 animation-delay-300">
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-purple-300">
+                                        <div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                                        <span>Economic Timeline</span>
+                                    </div>
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-blue-300">
+                                        <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse animation-delay-200"></div>
+                                        <span>Combat Analysis</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature 3 - Enhanced 3D Card -->
+                <div class="group relative perspective-1000 animate-fade-in-up animation-delay-1200">
+                    <!-- 3D Card Container -->
+                    <div class="relative transform-gpu transition-all duration-700 ease-out group-hover:rotateY-6 group-hover:rotateX-6 group-hover:scale-105 preserve-3d">
+                        <!-- Card Background with depth -->
+                        <div class="absolute -inset-2 bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-500 rounded-3xl opacity-0 group-hover:opacity-100 blur-xl transition-all duration-700 transform group-hover:scale-110"></div>
+                        
+                        <!-- Main Card -->
+                        <div class="relative bg-gradient-to-br from-gray-800/90 via-gray-900/95 to-black/90 backdrop-blur-xl rounded-3xl p-8 border border-gray-700/50 group-hover:border-yellow-400/50 transition-all duration-700 overflow-hidden">
+                            <!-- Animated background patterns -->
+                            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                                <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-yellow-500/5"></div>
+                                <div class="absolute top-1/4 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-2xl animate-pulse"></div>
+                                <div class="absolute bottom-1/4 left-0 w-24 h-24 bg-purple-400/10 rounded-full blur-2xl animate-pulse animation-delay-300"></div>
+                            </div>
+                            
+                            <!-- Icon Section with Enhanced 3D Effect -->
+                            <div class="relative mb-8 flex justify-center">
+                                <div class="relative transform transition-all duration-700 group-hover:scale-110 group-hover:rotateY-15">
+                                    <!-- Icon glow background -->
+                                    <div class="absolute -inset-6 bg-gradient-to-r from-purple-400 via-pink-500 to-yellow-400 opacity-0 group-hover:opacity-60 blur-2xl transition-all duration-700 rounded-full"></div>
+                                    
+                                    <!-- Icon container -->
+                                    <div class="relative bg-gradient-to-br from-purple-500 via-pink-500 to-yellow-500 p-1 rounded-2xl transform transition-all duration-700 group-hover:rotate-6">
+                                        <div class="bg-gray-900 rounded-2xl p-6 transform transition-all duration-500 group-hover:bg-gray-800">
+                                            <svg class="w-16 h-16 text-yellow-400 transform transition-all duration-700 group-hover:scale-110 group-hover:rotate-12" fill="none" viewBox="0 0 24 24">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Floating particles -->
+                                    <div class="absolute -top-2 -right-2 w-3 h-3 bg-yellow-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-200"></div>
+                                    <div class="absolute -bottom-2 -left-2 w-2 h-2 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 animate-bounce transition-opacity duration-700 animation-delay-400"></div>
+                                </div>
+                            </div>
+
+                            <!-- Content Section -->
+                            <div class="relative text-center transform transition-all duration-700 group-hover:translateZ-4">
+                                <h4 class="text-2xl font-black mb-4 bg-gradient-to-r from-white via-yellow-100 to-purple-100 bg-clip-text text-transparent group-hover:from-purple-300 group-hover:via-pink-300 group-hover:to-yellow-300 transition-all duration-700">
+                                    Improve Your Win Rate
+                                </h4>
+                                <p class="text-gray-400 text-lg leading-relaxed group-hover:text-gray-300 transition-colors duration-700">
+                                    Master every match with <span class="text-purple-400 font-semibold">actionable strategies</span> including optimized <span class="text-pink-400 font-semibold">build orders</span>, perfect <span class="text-yellow-400 font-semibold">unit counters</span>, and game-winning tactical decisions.
+                                </p>
+                                
+                                <!-- Stats/Features list -->
+                                <div class="mt-6 space-y-2 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-700 animation-delay-300">
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-yellow-300">
+                                        <div class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                                        <span>Tactical Recommendations</span>
+                                    </div>
+                                    <div class="flex items-center justify-center space-x-2 text-sm text-purple-300">
+                                        <div class="w-2 h-2 bg-purple-400 rounded-full animate-pulse animation-delay-200"></div>
+                                        <span>Win Rate Optimization</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="py-20 bg-gray-900 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute h-full w-full bg-gradient-to-br from-blue-900/10 via-transparent to-purple-900/10">
+            </div>
+            <div
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl animate-pulse">
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl md:text-4xl font-bold mb-4 animate-fade-in-up">
+                    <span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                        How It Works
+                    </span>
+                </h3>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
+                    Our simple process turns your match replays into personalized coaching
+                </p>
+            </div>
+
+            <div class="max-w-5xl mx-auto">
+                <div
+                    class="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500/20 via-purple-500/20 to-pink-500/20 hidden md:block">
+                </div>
+
+                <!-- Step 1 -->
+                <div class="relative flex items-center mb-20 last:mb-0 animate-fade-in-up md:flex-row">
+                    <div
+                        class="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full hidden md:block">
+                    </div>
+
+                    <div class="group w-full md:w-5/12 md:pr-8 md:text-right">
+                        <div
+                            class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 transform hover:-translate-y-1">
+                            <div
+                                class="flex flex-col md:flex-row items-center md:items-center mb-4 md:flex-row-reverse">
+                                <div class="relative mb-4 md:mb-0">
+                                    <div
+                                        class="absolute -inset-2 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-20 blur-xl group-hover:opacity-40 transition-opacity duration-300">
+                                    </div>
+                                    <div class="relative bg-gradient-to-r from-blue-500 to-cyan-500 p-[1px] rounded-xl">
+                                        <div class="bg-gray-800 rounded-xl p-3">
+                                            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    stroke="#60a5fa"
+                                                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h4
+                                    class="text-2xl font-bold text-center md:text-left md:mr-4 md:text-right text-white group-hover:text-blue-300 transition-colors duration-300">
+                                    Step 1: Connect Your Game Account
+                                </h4>
+                            </div>
+                            <p class="text-gray-400 text-lg group-hover:text-gray-300 transition-colors duration-300">
+                                Link your Steam account and we'll automatically sync your Age of Empires IV matches.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:block w-2/12"></div>
+                </div>
+
+                <!-- Step 2 -->
+                <div
+                    class="relative flex items-center mb-20 last:mb-0 animate-fade-in-up animation-delay-200 md:flex-row-reverse">
+                    <div
+                        class="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full hidden md:block">
+                    </div>
+
+                    <div class="group w-full md:w-5/12 md:pl-8">
+                        <div
+                            class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 transform hover:-translate-y-1">
+                            <div class="flex flex-col md:flex-row items-center md:items-center mb-4">
+                                <div class="relative mb-4 md:mb-0">
+                                    <div
+                                        class="absolute -inset-2 bg-gradient-to-r from-purple-500 to-pink-500 opacity-20 blur-xl group-hover:opacity-40 transition-opacity duration-300">
+                                    </div>
+                                    <div
+                                        class="relative bg-gradient-to-r from-purple-500 to-pink-500 p-[1px] rounded-xl">
+                                        <div class="bg-gray-800 rounded-xl p-3">
+                                            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    stroke="#a78bfa" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    stroke="#a78bfa"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h4
+                                    class="text-2xl font-bold text-center md:text-left md:ml-4 text-white group-hover:text-blue-300 transition-colors duration-300">
+                                    Step 2: Select a Match to Review
+                                </h4>
+                            </div>
+                            <p class="text-gray-400 text-lg group-hover:text-gray-300 transition-colors duration-300">
+                                Choose any of your recent matches and our AI will analyze the replay data in minutes.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:block w-2/12"></div>
+                </div>
+
+                <!-- Step 3 -->
+                <div
+                    class="relative flex items-center mb-20 last:mb-0 animate-fade-in-up animation-delay-400 md:flex-row">
+                    <div
+                        class="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full hidden md:block">
+                    </div>
+
+                    <div class="group w-full md:w-5/12 md:pr-8 md:text-right">
+                        <div
+                            class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 transform hover:-translate-y-1">
+                            <div
+                                class="flex flex-col md:flex-row items-center md:items-center mb-4 md:flex-row-reverse">
+                                <div class="relative mb-4 md:mb-0">
+                                    <div
+                                        class="absolute -inset-2 bg-gradient-to-r from-green-500 to-emerald-500 opacity-20 blur-xl group-hover:opacity-40 transition-opacity duration-300">
+                                    </div>
+                                    <div
+                                        class="relative bg-gradient-to-r from-green-500 to-emerald-500 p-[1px] rounded-xl">
+                                        <div class="bg-gray-800 rounded-xl p-3">
+                                            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    stroke="#10b981"
+                                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h4
+                                    class="text-2xl font-bold text-center md:text-left md:mr-4 md:text-right text-white group-hover:text-blue-300 transition-colors duration-300">
+                                    Step 3: Get Your Personalized Review
+                                </h4>
+                            </div>
+                            <p class="text-gray-400 text-lg group-hover:text-gray-300 transition-colors duration-300">
+                                Receive a comprehensive analysis with tips on economy, strategy, and areas for
+                                improvement.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="hidden md:block w-2/12"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AOE4 Section -->
+    <section id="aoe4"
+        class="py-20 bg-gradient-to-br from-blue-900/20 via-gray-900 to-indigo-900/20 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute top-10 left-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl animate-bounce"></div>
+            <div class="absolute bottom-10 right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-pulse">
+            </div>
+            <div class="absolute top-1/2 left-1/4 w-24 h-24 bg-cyan-500/10 rounded-full blur-xl animate-ping"></div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl md:text-4xl font-bold mb-4 animate-fade-in-up">
+                    <span
+                        class="bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent mt-20">
+                        Now Available: AOE4 Game Reviews
+                    </span>
+                </h3>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
+                    Experience the future of gaming improvement with AI-powered analysis
+                </p>
+            </div>
+
+            <div class="max-w-6xl mx-auto">
+                <div
+                    class="group bg-gradient-to-br from-gray-800/80 via-gray-800/60 to-gray-900/80 backdrop-blur-sm rounded-3xl p-8 md:p-12 border border-blue-500/30 hover:border-blue-400/50 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 animate-fade-in-up animation-delay-400">
+                    <div class="grid md:grid-cols-2 gap-12 items-center">
+                        <!-- Content -->
+                        <div class="space-y-6">
+                            <h4
+                                class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent group-hover:from-blue-200 group-hover:to-white transition-all duration-500">
+                                AI-Powered Match Analysis
+                            </h4>
+                            <p
+                                class="text-gray-300 text-lg leading-relaxed group-hover:text-gray-200 transition-colors duration-300">
+                                Get comprehensive reviews of your Age of Empires IV matches with strategic insights,
+                                build order analysis, and personalized improvement recommendations powered by advanced
+                                AI.
+                            </p>
+
+                            <!-- Enhanced feature list -->
+                            <div class="space-y-4">
+                                <div
+                                    class="flex items-center text-gray-300 group-hover:text-gray-200 transition-colors duration-300 animate-fade-in-up animation-delay-600">
+                                    <div class="relative mr-4">
+                                        <div
+                                            class="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-30 blur-sm">
+                                        </div>
+                                        <svg class="relative w-6 h-6 text-green-400" fill="currentColor"
+                                            viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-lg">Detailed match breakdown & timeline analysis</span>
+                                </div>
+                                <div
+                                    class="flex items-center text-gray-300 group-hover:text-gray-200 transition-colors duration-300 animate-fade-in-up animation-delay-700">
+                                    <div class="relative mr-4">
+                                        <div
+                                            class="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-30 blur-sm">
+                                        </div>
+                                        <svg class="relative w-6 h-6 text-green-400" fill="currentColor"
+                                            viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-lg">Strategic recommendations for improvement</span>
+                                </div>
+                                <div
+                                    class="flex items-center text-gray-300 group-hover:text-gray-200 transition-colors duration-300 animate-fade-in-up animation-delay-800">
+                                    <div class="relative mr-4">
+                                        <div
+                                            class="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-30 blur-sm">
+                                        </div>
+                                        <svg class="relative w-6 h-6 text-green-400" fill="currentColor"
+                                            viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-lg">Build order optimization & economy tips</span>
+                                </div>
+                            </div>
+
+                            <button onclick="window.location.href='https://aoe4.senteai.com/games'"
+                                class="group/btn relative bg-gradient-to-r from-blue-500 via-blue-600 to-purple-600 hover:from-blue-400 hover:via-blue-500 hover:to-purple-500 text-white font-bold py-4 px-8 rounded-full shadow-xl hover:shadow-blue-500/30 transition-all duration-300 transform hover:scale-105 animate-fade-in-up animation-delay-800 overflow-hidden">
+                                <span class="relative z-10">Start Analyzing Your Games</span>
+                                <div
+                                    class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transform -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-all duration-700">
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Visual element -->
+                        <div class="relative">
+                            <div
+                                class="relative bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-2xl p-8 border border-gray-600/50 group-hover:border-blue-500/30 transition-all duration-500">
+                                <!-- Mock game interface -->
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div
+                                            class="h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full w-32 animate-pulse">
+                                        </div>
+                                        <div class="h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full w-20">
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="h-3 bg-gray-600 rounded w-full"></div>
+                                        <div class="h-3 bg-gray-600 rounded w-3/4"></div>
+                                        <div class="h-3 bg-gray-600 rounded w-5/6"></div>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div
+                                            class="h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded border border-blue-500/30">
+                                        </div>
+                                        <div
+                                            class="h-16 bg-gradient-to-br from-green-500/20 to-blue-500/20 rounded border border-green-500/30">
+                                        </div>
+                                        <div
+                                            class="h-16 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded border border-purple-500/30">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Floating elements -->
+                                <div
+                                    class="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full opacity-60 animate-ping">
+                                </div>
+                                <div
+                                    class="absolute -bottom-2 -left-2 w-4 h-4 bg-purple-500 rounded-full opacity-40 animate-bounce">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-20 bg-gradient-to-br from-gray-800 via-gray-900 to-blue-900/30 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-purple-600/5"></div>
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse animation-delay-2000"></div>
+        </div>
+        
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4 animate-fade-in-up">
+                    <span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                        Simple, Transparent Pricing
+                    </span>
+                </h2>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
+                    Choose the token package that fits your needs. No subscriptions, no hidden fees. 
+                    Pay only for the AI analysis you use.
+                </p>
+            </div>
+
+            <!-- Token Packages -->
+            <div class="grid md:grid-cols-4 gap-6 mb-16 max-w-6xl mx-auto">
+                <!-- Free Package -->
+                <div class="bg-gradient-to-br from-green-800/50 via-emerald-800/50 to-green-900/50 backdrop-blur-sm rounded-2xl p-6 border-2 border-green-500 hover:border-green-400 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/20 relative animate-fade-in-up">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-semibold px-4 py-1 rounded-full">
+                            Free Start
+                        </span>
+                    </div>
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-white mb-2">Free</h3>
+                        <div class="text-3xl font-bold text-green-400 mb-1">$0</div>
+                        <div class="text-gray-300">2 Analysis Tokens</div>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-300 text-sm leading-relaxed">Perfect for new users to experience AI-powered analysis</p>
+                    </div>
+                    <ul class="space-y-3 text-gray-300 mb-6">
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            2 Free Game Reviews
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Full AI insights
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            No credit card required
+                        </li>
+                    </ul>
+                    <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                        Start Free
+                    </a>
+                </div>
+
+                <!-- Small Package -->
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 animate-fade-in-up animation-delay-150">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-white mb-2">Small</h3>
+                        <div class="text-3xl font-bold text-blue-400 mb-1">$2</div>
+                        <div class="text-gray-400">5 Analysis Tokens</div>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-300 text-sm leading-relaxed">Perfect for trying out our AI-powered game analysis</p>
+                    </div>
+                    <ul class="space-y-3 text-gray-300 mb-6">
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            5 Game Reviews
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            AI-powered insights
+                        </li>
+                    </ul>
+                    <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                        Get Started
+                    </a>
+                </div>
+
+                <!-- Medium Package - Popular -->
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border-2 border-blue-500 hover:border-blue-400 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 relative animate-fade-in-up animation-delay-300">
+                    <div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold px-4 py-1 rounded-full">
+                            Most Popular
+                        </span>
+                    </div>
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-white mb-2">Medium</h3>
+                        <div class="text-3xl font-bold text-blue-400 mb-1">$5</div>
+                        <div class="text-gray-400">20 Analysis Tokens</div>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-300 text-sm leading-relaxed">Great value for regular players who want consistent feedback</p>
+                    </div>
+                    <ul class="space-y-3 text-gray-300 mb-6">
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            20 Game Reviews
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Best value per token
+                        </li>
+                    </ul>
+                    <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                        Get Started
+                    </a>
+                </div>
+
+                <!-- Large Package -->
+                <div class="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 animate-fade-in-up animation-delay-400">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-white mb-2">Large</h3>
+                        <div class="text-3xl font-bold text-blue-400 mb-1">$10</div>
+                        <div class="text-gray-400">45 Analysis Tokens</div>
+                    </div>
+                    <div class="mb-6">
+                        <p class="text-gray-300 text-sm leading-relaxed">Best for serious players who want to analyze multiple games</p>
+                    </div>
+                    <ul class="space-y-3 text-gray-300 mb-6">
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            45 Game Reviews
+                        </li>
+                        <li class="flex items-center">
+                            <svg class="w-4 h-4 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            Maximum value
+                        </li>
+                    </ul>
+                    <a href="https://aoe4.senteai.com/games" class="w-full bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 block text-center">
+                        Get Started
+                    </a>
+                </div>
+            </div>
+
+            <!-- How It Works -->
+            <div class="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 mb-16 animate-fade-in-up animation-delay-400">
+                <h3 class="text-2xl font-semibold text-center mb-8">How Token Pricing Works</h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-blue-400 font-bold">1</span>
+                        </div>
+                        <h4 class="font-semibold mb-2">Purchase Tokens</h4>
+                        <p class="text-gray-400 text-sm">Buy a token package that suits your needs</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-blue-400 font-bold">2</span>
+                        </div>
+                        <h4 class="font-semibold mb-2">Use for Analysis</h4>
+                        <p class="text-gray-400 text-sm">Each game review costs 1 token</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="bg-blue-500/20 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-blue-400 font-bold">3</span>
+                        </div>
+                        <h4 class="font-semibold mb-2">Get Results</h4>
+                        <p class="text-gray-400 text-sm">Receive detailed AI-powered analysis</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="text-center animate-fade-in-up animation-delay-600">
+                <h3 class="text-2xl font-semibold mb-4">Ready to Level Up Your Game?</h3>
+                <p class="text-gray-400 mb-6">Start analyzing your matches today and see immediate improvement in your gameplay.</p>
+                <a href="https://aoe4.senteai.com/games" class="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold py-4 px-8 rounded-full shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105">
+                    Launch Sente AI
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Signup Section -->
+    <section id="signup"
+        class="py-20 bg-gradient-to-br from-gray-800 via-gray-900 to-blue-900/30 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-transparent to-purple-600/5"></div>
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+            <div
+                class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse animation-delay-2000">
+            </div>
+
+            <!-- Floating particles -->
+            <div class="absolute top-20 left-20 w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            <div class="absolute top-40 right-32 w-3 h-3 bg-purple-400 rounded-full animate-bounce"></div>
+            <div class="absolute bottom-32 left-1/3 w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+            <div class="absolute bottom-20 right-20 w-4 h-4 bg-pink-400 rounded-full animate-ping animation-delay-4000">
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="max-w-4xl mx-auto text-center">
+                <div class="mb-12">
+                    <h3 class="text-3xl md:text-5xl font-bold mb-6 animate-fade-in-up">
+                        <span
+                            class="bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                            Ready to Level Up
+                        </span>
+                        <span class="block text-white">Your Game?</span>
+                    </h3>
+                    <p
+                        class="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
+                        Join the waitlist to be notified when we expand to more games beyond AOE4.
+                    </p>
+                </div>
+
+                <div class="max-w-2xl mx-auto">
+                    <form id="waitlist-form" class="animate-fade-in-up animation-delay-400">
+                        <div
+                            class="group relative bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 p-[1px] rounded-2xl md:rounded-full backdrop-blur-sm">
+                            <div class="bg-gray-900/80 rounded-2xl md:rounded-full p-3 md:p-2">
+                                <div class="flex flex-col md:flex-row gap-3 md:gap-2">
+                                    <div class="relative flex-1">
+                                        <input type="email" id="email-input" placeholder="Enter your email address"
+                                            class="w-full px-6 py-4 rounded-xl md:rounded-full bg-gray-800/50 border border-gray-600/50 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500/50 focus:bg-gray-800/70 transition-all duration-300 backdrop-blur-sm text-lg"
+                                            required>
+                                        <div
+                                            class="absolute inset-0 rounded-xl md:rounded-full bg-gradient-to-r from-blue-500/0 via-purple-500/0 to-pink-500/0 group-hover:from-blue-500/10 group-hover:via-purple-500/10 group-hover:to-pink-500/10 transition-all duration-500 pointer-events-none">
+                                        </div>
+                                    </div>
+                                    <button type="submit" id="submit-btn"
+                                        class="group/btn relative bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-400 hover:via-purple-400 hover:to-pink-400 text-white font-bold py-4 px-8 rounded-xl md:rounded-full shadow-xl transition-all duration-300 overflow-hidden text-lg min-h-[56px] hover:shadow-blue-500/30 transform hover:scale-105">
+                                        <span class="relative z-10 whitespace-nowrap">Get Early Access</span>
+                                        <div
+                                            class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transform -skew-x-12 -translate-x-full group-hover/btn:translate-x-full transition-all duration-700">
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Messages -->
+                    <div id="success-message"
+                        class="hidden mt-6 p-4 bg-green-500/10 border border-green-500/30 rounded-2xl backdrop-blur-sm animate-fade-in-up">
+                        <p class="text-green-400 text-lg flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <span id="success-text">Thank you for joining our waitlist!</span>
+                        </p>
+                    </div>
+
+                    <div id="error-message"
+                        class="hidden mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl backdrop-blur-sm animate-fade-in-up">
+                        <p class="text-red-400 text-lg flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <span id="error-text">An error occurred. Please try again.</span>
+                        </p>
+                    </div>
+
+                    <!-- Trust indicators -->
+                    <div
+                        class="mt-8 flex items-center justify-center gap-8 text-gray-400 text-sm animate-fade-in-up animation-delay-600">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <span>Secure & Private</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                            </svg>
+                            <span>No Spam</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <span>Early Access</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer
+        class="bg-gradient-to-t from-gray-900 via-gray-900 to-gray-800 border-t border-blue-900/50 py-16 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute bottom-0 left-1/4 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
+            <div
+                class="absolute bottom-0 right-1/4 w-48 h-48 bg-purple-500/5 rounded-full blur-2xl animate-pulse animation-delay-2000">
+            </div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-12">
+                <!-- Brand section with animation -->
+                <div class="mb-8 md:mb-0 text-center md:text-left animate-fade-in-up">
+                    <h2 class="text-2xl font-bold mb-3">
+                        <span
+                            class="bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                            Sente AI
+                        </span>
+                    </h2>
+                    <p class="text-gray-400 text-lg max-w-md">
+                        AI-powered game reviews that make you better. Transform your gameplay with intelligent analysis.
+                    </p>
+
+                    <!-- Social proof indicators -->
+                    <div class="flex items-center gap-6 mt-4 justify-center md:justify-start">
+                        <div class="flex items-center gap-2 text-gray-500 text-sm">
+                            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span>AOE4 Ready</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-gray-500 text-sm">
+                            <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse animation-delay-1000"></div>
+                            <span>AI Powered</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation links with enhanced styling -->
+                <div class="animate-fade-in-up animation-delay-200">
+                    <div class="flex flex-col md:flex-row items-center gap-6">
+                        <button onclick="window.location.href='https://aoe4.senteai.com/games'"
+                            class="group relative text-gray-400 hover:text-blue-400 transition-all duration-300 text-lg font-medium">
+                            <span class="relative z-10">AOE4 Game Reviews</span>
+                            <div
+                                class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 rounded-lg blur-xl transition-opacity duration-300">
+                            </div>
+                        </button>
+
+                        <div class="w-1 h-1 bg-gray-600 rounded-full hidden md:block"></div>
+
+                        <button onclick="scrollToSection('terms')"
+                            class="group relative text-gray-400 hover:text-blue-400 transition-all duration-300 text-lg font-medium">
+                            <span class="relative z-10">Terms of Service</span>
+                            <div
+                                class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 rounded-lg blur-xl transition-opacity duration-300">
+                            </div>
+                        </button>
+
+                        <div class="w-1 h-1 bg-gray-600 rounded-full hidden md:block"></div>
+
+                        <button onclick="scrollToSection('pricing')"
+                            class="group relative text-gray-400 hover:text-blue-400 transition-all duration-300 text-lg font-medium">
+                            <span class="relative z-10">Pricing</span>
+                            <div
+                                class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 rounded-lg blur-xl transition-opacity duration-300">
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- CTA Button -->
+                    <div class="mt-6 text-center md:text-right">
+                        <button onclick="scrollToSection('signup')"
+                            class="group relative bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 hover:border-blue-400/50 text-blue-300 hover:text-white px-6 py-3 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 backdrop-blur-sm">
+                            <span class="relative z-10">Get Early Access</span>
+                            <div
+                                class="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/20 group-hover:to-purple-500/20 rounded-full transition-all duration-300">
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Divider with gradient -->
+            <div class="relative mb-8">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gradient-to-r from-transparent via-blue-500/30 to-transparent">
+                    </div>
+                </div>
+                <div class="relative flex justify-center">
+                    <div class="bg-gray-900 px-4">
+                        <div class="w-16 h-[1px] bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Copyright and additional info -->
+            <div class="text-center animate-fade-in-up animation-delay-400">
+                <p class="text-gray-500 text-lg mb-4">
+                    &copy; 2024 Sente AI. All rights reserved.
+                </p>
+                <p class="text-gray-600 text-sm">
+                    Built with ❤️ for the gaming community.
+                    <span class="text-blue-400 ml-1">Level up your gameplay with AI.</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

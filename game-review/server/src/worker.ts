@@ -6,16 +6,14 @@ import './utils/workerLogger';
 
 import { SQS } from 'aws-sdk';
 import { pool } from './db/connection';
-import OpenAI from 'openai';
-import { gzipSync } from 'zlib';
+import { getTypeForModel } from './config/models';
+import { getReviewEngine } from './config/reviewEngine';
 
 const sqs = new SQS({
   region: process.env.AWS_REGION || 'us-east-1',
 });
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const reviewEngine = getReviewEngine(process.env.OPENAI_API_KEY!);
 
 const QUEUE_URL = process.env.SQS_QUEUE_URL;
 
@@ -29,6 +27,8 @@ interface ReviewTask {
   taskId: string;
   gameId: number;
   userId: string;
+  discordUserId?: string; // Optional Discord user ID for notifications
+  replayData?: Buffer; // Optional replay file data for premium reviews
 }
 
 async function processReviewTask(task: ReviewTask) {
@@ -42,13 +42,14 @@ async function processReviewTask(task: ReviewTask) {
       WHERE id = $1
     `, [task.taskId]);
 
-    // Get review task model
+    // Get review task model and type
     const taskResult = await client.query(`
-      SELECT llm_model FROM review_tasks WHERE id = $1
+      SELECT llm_model, review_type FROM review_tasks WHERE id = $1
     `, [task.taskId]);
     
     const llmModel = taskResult.rows[0]?.llm_model || 'gpt-4o-mini';
-    console.log(`Processing review with model: ${llmModel}`);
+    const requestedReviewType = taskResult.rows[0]?.review_type || 'regular';
+    console.log(`Processing review with model: ${llmModel} for user: ${task.userId}`);
 
     // Get game data with players and user's Steam/AOE4World info
     const gameResult = await client.query(`
@@ -56,23 +57,11 @@ async function processReviewTask(task: ReviewTask) {
              u.auth0_sub,
              i.external_id as steam_id,
              i.aoe4world_profile_id,
-             array_agg(
-               json_build_object(
-                 'team_number', gp.team_number,
-                 'player_name', gp.player_name,
-                 'civilization', gp.civilization,
-                 'result', gp.result,
-                 'rating', gp.rating,
-                 'mmr', gp.mmr,
-                 'is_user', gp.is_user
-               ) ORDER BY gp.team_number, gp.player_name
-             ) as players
+             i.aoe4world_username
       FROM games g
       JOIN users u ON g.user_id = u.id
       JOIN identities i ON u.id = i.user_id AND i.provider = 'steam'
-      LEFT JOIN game_players gp ON g.db_id = gp.game_db_id
       WHERE g.id = $1 AND g.user_id = $2
-      GROUP BY g.id, g.db_id, u.auth0_sub, i.external_id, i.aoe4world_profile_id
     `, [task.gameId, task.userId]);
 
     if (gameResult.rows.length === 0) {
@@ -91,9 +80,23 @@ async function processReviewTask(task: ReviewTask) {
         gameInfo.steam_id,
         task.gameId.toString()
       );
-      console.log('Fetched detailed game summary for AI analysis');
+      console.log(`✓ Fetched detailed game summary for AI analysis (user: ${task.userId}, game: ${task.gameId})`);
+      
+      // Log data quality indicators
+      const hasEvents = detailedGameData?.events && Array.isArray(detailedGameData.events);
+      const hasTimeline = detailedGameData?.timeline && Array.isArray(detailedGameData.timeline);
+      const hasPlayerDetails = detailedGameData?.players && detailedGameData.players.length > 0;
+      const hasBuildOrders = detailedGameData?.players?.some((p: any) => p.buildOrder || p.techs || p.units);
+      
+      console.log(`Data quality check for user ${task.userId}: events=${hasEvents}, timeline=${hasTimeline}, playerDetails=${hasPlayerDetails}, buildOrders=${hasBuildOrders}`);
+      
+      if (!hasEvents && !hasTimeline && !hasBuildOrders) {
+        console.warn(`⚠️ Game data appears to be lobby-only (missing events, timeline, build orders) for user ${task.userId}, game ${task.gameId}`);
+      }
     } catch (error) {
-      console.warn('Could not fetch detailed game summary, using basic game data:', error);
+      console.error(`❌ fetchGameSummary failed for user ${task.userId}, game ${task.gameId}:`, error instanceof Error ? error.message : String(error));
+      console.log(`📋 Falling back to basic game data from database for user ${task.userId}, game ${task.gameId}`);
+      
       // Fallback to basic game data
       detailedGameData = {
         map_name: gameInfo.map_name,
@@ -102,57 +105,51 @@ async function processReviewTask(task: ReviewTask) {
         team_size: gameInfo.team_size,
         players: gameInfo.players
       };
+      
+      console.warn(`⚠️ Using minimal game data - review quality will be limited for user ${task.userId}, game ${task.gameId}`);
     }
 
-    // Generate review using OpenAI with selected model
-    const isPremiumReview = llmModel === 'gpt-4o';
+    // For premium (elite) reviews, replay parsing is currently disabled
+    let replayAnalysis = null;
+    const actualReviewType = getTypeForModel(llmModel);
+    if (actualReviewType === 'elite') {
+      console.log('Elite review requested - replay parsing functionality not available');
+      // Replay parsing functionality removed due to missing replay-parser service
+    }
+
+    // Generate review using ReviewEngine
+    const playerName = gameInfo.aoe4world_username || 'Player';
     
-    const basePrompt = `SYSTEM: You are an elite Age of Empires IV coach analyzing a match replay. 
-    Provide detailed strategic analysis and split the review into sections that are relevant to the actual game data.
-
-Focus on this player's performance: ${gameInfo.steam_id}.
-
-Recall things that happened in the game through the review.
-
-Make the review detailed and long but well sectioned.
-
-Be critical of the player's performance and point out areas for improvement.
-
-Point out interesting things that happened in the game that are relevant to the player's performance and use examples throughout your response.
-
-Format your response as markdown with clear sections. Add emojis (in tasteful amounts) to make it more engaging.`;
-
-    const premiumPromptAddition = isPremiumReview ? `
-
-PREMIUM REVIEW: Provide even deeper strategic analysis including:
-- Advanced tactical decision analysis
-- Macro vs micro balance assessment  
-- Economic efficiency optimization
-- Unit composition timing analysis
-- Map control and positioning insights
-- Counter-strategy recommendations
-- Psychological/mindset coaching tips` : '';
-
-    const prompt = basePrompt + premiumPromptAddition + `
-
-Game Data: ${JSON.stringify(detailedGameData)}`;
-
-    const completion = await openai.chat.completions.create({
-      model: llmModel,
-      messages: [{ role: 'user', content: prompt }],
+    // Log review generation context
+    console.log(`🤖 Generating ${actualReviewType} review for ${playerName} (user: ${task.userId}) using ${llmModel}`);
+    console.log(`📊 Game data size: ${JSON.stringify(detailedGameData).length} characters for user ${task.userId}`);
+    
+    const review = await reviewEngine.generateReview({
+      type: actualReviewType,
+      playerName: playerName,
+      gameData: detailedGameData,
+      replayData: replayAnalysis,
+      llmModel: llmModel
     });
-
-    const review = completion.choices[0]?.message?.content;
-    if (!review) {
-      throw new Error('No review generated');
+    
+    // Check if review indicates insufficient data
+    const isInsufficientDataReview = review.includes('missing') || 
+                                   review.includes('lobby header') || 
+                                   review.includes('not enough data') ||
+                                   review.includes('resend the match');
+    
+    if (isInsufficientDataReview) {
+      console.error(`❌ LLM indicated insufficient game data in review for user ${task.userId}, game ${task.gameId}`);
+    } else {
+      console.log(`✅ Review generated successfully for user ${task.userId}, game ${task.gameId}`);
     }
 
     // Save review
     const reviewResult = await client.query(`
-      INSERT INTO reviews (game_db_id, llm_model, summary_md) 
-      VALUES ($1, $2, $3) 
+      INSERT INTO reviews (game_db_id, llm_model, review_type, summary_md) 
+      VALUES ($1, $2, $3, $4) 
       RETURNING id
-    `, [gameDbId, llmModel, review]);
+    `, [gameDbId, llmModel, requestedReviewType, review]);
 
     // Update game status
     await client.query(`
@@ -166,7 +163,7 @@ Game Data: ${JSON.stringify(detailedGameData)}`;
       WHERE id = $1
     `, [task.taskId]);
 
-    console.log(`Review completed for game ${task.gameId}, review ID: ${reviewResult.rows[0].id}`);
+    console.log(`Review completed for user ${task.userId}, game ${task.gameId}, review ID: ${reviewResult.rows[0].id}`);
 
   } catch (error) {
     console.error(`Review task failed:`, error);
@@ -205,13 +202,15 @@ async function pollSQS() {
       const result = await sqs.receiveMessage(params).promise();
 
       if (result.Messages && result.Messages.length > 0) {
-        console.log(`Received ${result.Messages.length} messages from SQS`);
+        const receiveTime = new Date().toISOString();
+        console.log(`[${receiveTime}] Received ${result.Messages.length} messages from SQS`);
       }
 
       if (result.Messages) {
         for (const message of result.Messages) {
           try {
             const task: ReviewTask = JSON.parse(message.Body || '{}');
+            console.log(`Processing task: ${task.taskId} for user: ${task.userId}, game: ${task.gameId}`);
             await processReviewTask(task);
 
             // Delete message on success
@@ -231,6 +230,5 @@ async function pollSQS() {
     }
   }
 }
-
 // Start worker
 pollSQS().catch(console.error);

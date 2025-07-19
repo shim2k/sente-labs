@@ -85,6 +85,7 @@ game-review/deploy-frontend.sh
 game-review/deploy-backend-update.sh
 game-review/deploy-backend.sh
 game-review/deploy-all.sh
+game-review/deploy-landing.sh
 
 # AOE4 Review - Database Files
 game-review/server/*.sqlite

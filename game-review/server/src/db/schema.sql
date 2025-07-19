@@ -6,7 +6,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     auth0_sub TEXT UNIQUE NOT NULL,
     email TEXT,
-    tokens INTEGER DEFAULT 5 NOT NULL,
+    tokens INTEGER DEFAULT 2 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

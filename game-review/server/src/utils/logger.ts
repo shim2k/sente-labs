@@ -42,7 +42,7 @@ const logger = winston.createLogger({
     new winston.transports.File({
       filename: path.join(logsDir, 'combined.log'),
       maxsize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 5,
+      maxFiles: 20,
       tailable: true
     }),
     
@@ -51,7 +51,7 @@ const logger = winston.createLogger({
       filename: path.join(logsDir, 'error.log'),
       level: 'error',
       maxsize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 5,
+      maxFiles: 20,
       tailable: true
     }),
     
@@ -60,7 +60,7 @@ const logger = winston.createLogger({
       filename: path.join(logsDir, 'api-errors.log'),
       level: 'warn',
       maxsize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 5,
+      maxFiles: 20,
       tailable: true,
       format: winston.format.combine(
         winston.format.timestamp(),
@@ -78,7 +78,7 @@ const logger = winston.createLogger({
       filename: path.join(logsDir, 'app.log'),
       level: 'info',
       maxsize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 5,
+      maxFiles: 20,
       tailable: true
     })
   ],

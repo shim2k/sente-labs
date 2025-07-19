@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db/connection';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { sendSQSMessage } from '../services/sqs';
+import { getModelForType, getTokenCostForType } from '../config/models';
 
 const router = Router();
 
@@ -20,8 +21,8 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
     }
 
     // Map review type to model and token cost
-    const model = type === 'elite' ? 'gpt-4o' : 'gpt-4o-mini';
-    const tokenCost = type === 'elite' ? 2 : 1;
+    const model = getModelForType(type);
+    const tokenCost = getTokenCostForType(type);
 
     const client = await pool().connect();
     try {
@@ -70,10 +71,10 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
 
       // Create review task
       const taskResult = await client.query(`
-        INSERT INTO review_tasks (game_db_id, llm_model, job_state) 
-        VALUES ($1, $2, 'queued') 
+        INSERT INTO review_tasks (game_db_id, llm_model, review_type, job_state) 
+        VALUES ($1, $2, $3, 'queued') 
         RETURNING id
-      `, [gameDbId, model]);
+      `, [gameDbId, model, type]);
 
       const taskId = taskResult.rows[0].id;
 
@@ -88,13 +89,15 @@ router.post('/games/:id/review', authenticateToken, async (req: AuthRequest, res
       `, [gameDbId]);
 
       // Send SQS message
-      console.log('Sending SQS message for task:', taskId);
+      const sqsSendTime = new Date().toISOString();
+      console.log(`[${sqsSendTime}] Sending SQS message for task: ${taskId}, game: ${gameId}`);
       await sendSQSMessage({
         taskId,
         gameId,
         userId: gameResult.rows[0].user_id
       });
-      console.log('SQS message sent successfully');
+      const sqsSentTime = new Date().toISOString();
+      console.log(`[${sqsSentTime}] SQS message sent successfully for task: ${taskId} (took ${Date.now() - new Date(sqsSendTime).getTime()}ms)`);
 
       res.status(202).json({ taskId, message: 'Review queued' });
     } finally {
@@ -128,6 +131,55 @@ router.get('/tokens', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
+router.get('/reviews', async (req, res) => {
+  try {
+    const client = await pool().connect();
+    try {
+      const result = await client.query(`
+        SELECT r.id as review_id, r.llm_model, r.review_type, r.summary_md, r.generated_at,
+               g.id as game_id, g.map_name, g.game_mode, g.duration_seconds, 
+               g.season, g.team_size, g.average_rating, g.average_mmr, g.played_at,
+               g.players,
+               COALESCE(i.aoe4world_username, i.username, u.email, 'Anonymous') as user_display_name
+        FROM reviews r
+        JOIN games g ON r.game_db_id = g.db_id
+        JOIN users u ON g.user_id = u.id
+        LEFT JOIN identities i ON u.id = i.user_id AND i.provider = 'steam'
+        ORDER BY r.generated_at DESC
+        LIMIT 30
+      `);
+
+      const reviews = result.rows.map(row => ({
+        id: row.review_id,
+        game_id: row.game_id,
+        review_type: row.review_type || 'regular', // Use stored type, fallback to regular
+        summary_md: row.summary_md,
+        generated_at: row.generated_at,
+        user_display_name: row.user_display_name,
+        game: {
+          id: row.game_id,
+          map_name: row.map_name,
+          game_mode: row.game_mode,
+          duration_seconds: row.duration_seconds,
+          season: row.season,
+          team_size: row.team_size,
+          average_rating: row.average_rating,
+          average_mmr: row.average_mmr,
+          played_at: row.played_at,
+          players: row.players || []
+        }
+      }));
+
+      res.json({ reviews });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Reviews fetch error:', error);
+    res.status(500).json({ error: 'Internal server error', code: 'REVIEWS_FETCH_ERROR' });
+  }
+});
+
 router.get('/reviews/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const reviewId = req.params.id;
@@ -136,9 +188,11 @@ router.get('/reviews/:id', authenticateToken, async (req: AuthRequest, res) => {
     try {
       
       const result = await client.query(`
-        SELECT r.*, g.*
+        SELECT r.id as review_id, r.llm_model, r.review_type, r.summary_md, r.generated_at,
+               g.id as game_id, g.map_name, g.game_mode, g.duration_seconds, 
+               g.season, g.team_size, g.average_rating, g.average_mmr, g.played_at
         FROM reviews r
-        JOIN games g ON r.game_id = g.id
+        JOIN games g ON r.game_db_id = g.db_id
         WHERE r.id = $1
       `, [reviewId]);
 
@@ -148,9 +202,9 @@ router.get('/reviews/:id', authenticateToken, async (req: AuthRequest, res) => {
 
       const review = result.rows[0];
       res.json({
-        id: review.id,
+        id: review.review_id,
         game_id: review.game_id,
-        llm_model: review.llm_model,
+        review_type: review.review_type || 'regular', // Use stored type, fallback to regular
         summary_md: review.summary_md,
         generated_at: review.generated_at,
         game: {

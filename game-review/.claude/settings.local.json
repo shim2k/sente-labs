@@ -15,7 +15,9 @@
       "Bash(curl:*)",
       "Bash(ssh:*)",
       "Bash(source .env)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(aws ec2 associate-iam-instance-profile:*)"
     ],
     "deny": []
   }

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
+import mermaid from 'mermaid';
 
 interface Game {
   id: number;
@@ -18,46 +20,90 @@ interface Game {
 interface Review {
   id: string;
   game_id: number;
-  llm_model: string;
+  review_type: 'regular' | 'elite';
   summary_md: string;
   generated_at: string;
   game?: Game;
 }
 
+// Mermaid Chart Component
+const MermaidChart: React.FC<{ code: string }> = ({ code }) => {
+  const mermaidRef = useRef<HTMLDivElement>(null);
+  const chartId = useRef(`mermaid-${Math.random().toString(36).substr(2, 9)}`);
+
+  useEffect(() => {
+    if (mermaidRef.current && code) {
+      mermaid.render(chartId.current, code).then(({ svg }) => {
+        if (mermaidRef.current) {
+          mermaidRef.current.innerHTML = svg;
+        }
+      }).catch((error) => {
+        console.error('Mermaid rendering error:', error);
+        if (mermaidRef.current) {
+          mermaidRef.current.innerHTML = `<pre class="text-red-400 text-sm">${code}</pre>`;
+        }
+      });
+    }
+  }, [code]);
+
+  return (
+    <div className="my-4 flex justify-center">
+      <div className="bg-gray-800 rounded-lg p-4 max-w-full overflow-x-auto border border-gray-700">
+        <div ref={mermaidRef} />
+      </div>
+    </div>
+  );
+};
+
 const Review: React.FC = () => {
   const { reviewId } = useParams<{ reviewId: string }>();
-  const { getToken } = useAuth();
+  const { apiClient } = useAuth();
   const navigate = useNavigate();
   const [review, setReview] = useState<Review | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  // Initialize Mermaid
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        primaryColor: '#1f2937',
+        primaryTextColor: '#e5e7eb',
+        primaryBorderColor: '#374151',
+        lineColor: '#6b7280',
+        secondaryColor: '#374151',
+        tertiaryColor: '#4b5563',
+        background: '#111827',
+        mainBkg: '#1f2937',
+        secondBkg: '#374151',
+        tertiaryBkg: '#4b5563',
+        textColor: '#e5e7eb',
+        fontSize: '14px'
+      }
+    });
+  }, []);
+
 
   useEffect(() => {
     const fetchReview = async () => {
-      if (!reviewId) {
-        setError('No review ID provided');
+      if (!reviewId || !apiClient) {
+        if (!reviewId) setError('No review ID provided');
         setIsLoading(false);
         return;
       }
 
       try {
         setIsLoading(true);
-        const token = await getToken();
-        const response = await fetch(`${apiBase}/api/v1/reviews/${reviewId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await apiClient.get<Review>(`/api/v1/reviews/${reviewId}`);
 
-        if (response.ok) {
-          const data = await response.json();
-          setReview(data);
+        if (response.data) {
+          setReview(response.data);
         } else if (response.status === 404) {
           setError('Review not found');
         } else {
-          setError('Failed to load review');
+          setError(response.error || 'Failed to load review');
         }
       } catch (error) {
         console.error('Error fetching review:', error);
@@ -68,7 +114,7 @@ const Review: React.FC = () => {
     };
 
     fetchReview();
-  }, [reviewId, apiBase, getToken]);
+  }, [reviewId, apiClient]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -144,15 +190,15 @@ const Review: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-start sm:justify-end space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-100">Game Analysis</h1>
             <div className={`px-3 py-1 rounded-full text-xs font-bold border ${
-              review.llm_model === 'gpt-4o' 
+              review.review_type === 'elite' 
                 ? 'bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-300'
                 : 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 border-blue-500/30 text-blue-300'
             }`}>
-              {review.llm_model === 'gpt-4o' ? 'ELITE REVIEW' : 'STANDARD REVIEW'}
+              {review.review_type === 'elite' ? 'ELITE REVIEW' : 'STANDARD REVIEW'}
             </div>
           </div>
           <p className="text-gray-400 text-xs sm:text-sm">
-            Generated on {formatDate(review.generated_at)} • {review.llm_model === 'gpt-4o' ? '2 tokens used' : '1 token used'}
+            Generated on {formatDate(review.generated_at)} • {review.review_type === 'elite' ? '2 tokens used' : '1 token used'}
           </p>
         </div>
       </div>
@@ -201,6 +247,7 @@ const Review: React.FC = () => {
 
         <div className="prose prose-invert prose-orange max-w-none">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               h1: ({ children }) => <h1 className="text-xl sm:text-2xl font-bold text-gray-100 mb-3 sm:mb-4 border-b border-gray-600 pb-2">{children}</h1>,
               h2: ({ children }) => <h2 className="text-lg sm:text-xl font-semibold text-gray-200 mb-2 sm:mb-3 mt-4 sm:mt-6">{children}</h2>,
@@ -211,8 +258,55 @@ const Review: React.FC = () => {
               li: ({ children }) => <li className="text-sm sm:text-base text-gray-300">{children}</li>,
               strong: ({ children }) => <strong className="text-orange-300 font-semibold">{children}</strong>,
               em: ({ children }) => <em className="text-gray-200 italic">{children}</em>,
-              code: ({ children }) => <code className="bg-gray-700 text-orange-300 px-1 py-0.5 rounded text-xs sm:text-sm">{children}</code>,
-              pre: ({ children }) => <pre className="bg-gray-900 border border-gray-600 rounded p-3 sm:p-4 overflow-x-auto mb-3 sm:mb-4 text-xs sm:text-sm">{children}</pre>,
+              table: ({ children }) => (
+                <div className="overflow-x-auto mb-4">
+                  <table className="min-w-full border border-gray-600 rounded-lg text-sm">
+                    {children}
+                  </table>
+                </div>
+              ),
+              thead: ({ children }) => <thead className="bg-gray-700">{children}</thead>,
+              tbody: ({ children }) => <tbody className="bg-gray-800/50">{children}</tbody>,
+              tr: ({ children }) => <tr className="border-b border-gray-600">{children}</tr>,
+              th: ({ children }) => (
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider border-r border-gray-600 last:border-r-0">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-3 py-2 text-sm text-gray-300 border-r border-gray-600 last:border-r-0">
+                  {children}
+                </td>
+              ),
+              code: ({ node, inline, className, children, ...props }: any) => {
+                const match = /language-(\w+)/.exec(className || '');
+                const language = match ? match[1] : '';
+                
+                // Check if it's a mermaid code block
+                if (!inline && language === 'mermaid') {
+                  return <MermaidChart code={String(children).trim()} />;
+                }
+                
+                // Regular inline code
+                if (inline) {
+                  return <code className="bg-gray-700 text-orange-300 px-1 py-0.5 rounded text-xs sm:text-sm" {...props}>{children}</code>;
+                }
+                
+                // Regular code blocks (non-mermaid)
+                return (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => {
+                // Check if children contains a mermaid code block
+                const codeElement = React.Children.toArray(children)[0];
+                if (React.isValidElement(codeElement) && codeElement.props?.className === 'language-mermaid') {
+                  return <>{children}</>;
+                }
+                return <pre className="bg-gray-900 border border-gray-600 rounded p-3 sm:p-4 overflow-x-auto mb-3 sm:mb-4 text-xs sm:text-sm">{children}</pre>;
+              },
               blockquote: ({ children }) => <blockquote className="border-l-4 border-orange-500 pl-3 sm:pl-4 italic text-sm sm:text-base text-gray-400 mb-3 sm:mb-4">{children}</blockquote>,
             }}
           >

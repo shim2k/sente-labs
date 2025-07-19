@@ -61,7 +61,11 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
     onClose();
   };
 
-  const canAfford = (cost: number) => userTokens >= cost;
+  const canAfford = (cost: number, optionId: ReviewType) => {
+    // Elite review is always disabled
+    if (optionId === 'elite') return false;
+    return userTokens >= cost;
+  };
 
   if (!isOpen) return null;
 
@@ -89,7 +93,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
         {/* Content */}
         <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 max-h-[60vh] overflow-y-auto">
           {reviewOptions.map((option) => {
-            const affordable = canAfford(option.tokenCost);
+            const affordable = canAfford(option.tokenCost, option.id);
             const isSelected = selectedType === option.id;
 
             return (
@@ -102,7 +106,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
                     ? 'border-gray-600/50 hover:border-gray-500/50 bg-gray-800/30'
                     : 'border-gray-700/30 bg-gray-800/10 opacity-60'
                 }`}
-                onClick={() => affordable && setSelectedType(option.id)}
+                onClick={() => affordable && option.id !== 'elite' && setSelectedType(option.id)}
               >
                 {/* Badge */}
                 {option.badge && (
@@ -147,7 +151,9 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
                 {!affordable && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 rounded-xl">
                     <div className="text-center">
-                      <span className="text-red-400 font-medium text-sm">Insufficient Tokens</span>
+                      <span className="text-gray-400 font-medium text-sm">
+                        {option.id === 'elite' ? 'Coming Soon' : 'Insufficient Tokens'}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -173,7 +179,7 @@ const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!canAfford(reviewOptions.find(r => r.id === selectedType)?.tokenCost || 0)}
+                disabled={!canAfford(reviewOptions.find(r => r.id === selectedType)?.tokenCost || 0, selectedType)}
                 className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-black font-medium rounded-lg hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate Review

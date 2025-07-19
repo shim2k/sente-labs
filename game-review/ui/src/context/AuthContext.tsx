@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
+import { ApiClient } from '../utils/apiClient';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -10,6 +11,7 @@ interface AuthContextType {
   getToken: () => Promise<string>;
   tokens: number;
   refreshTokens: () => void;
+  apiClient: ApiClient | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,8 +21,9 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   getToken: async () => '',
-  tokens: 5,
-  refreshTokens: () => {}
+  tokens: 3,
+  refreshTokens: () => {},
+  apiClient: null
 });
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
@@ -34,38 +37,50 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   } = useAuth0();
 
   const [tokens, setTokens] = useState<number>(5);
+  const [apiClient, setApiClient] = useState<ApiClient | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const getToken = async () => {
     try {
-      return await getAccessTokenSilently();
-    } catch (error) {
+      const token = await getAccessTokenSilently();
+      return token;
+    } catch (error: any) {
       console.error('Error getting token:', error);
-      return '';
+      
+      // If it's a refresh token error, force re-authentication
+      if (error.message && error.message.includes('Missing Refresh Token')) {
+        console.log('Refresh token missing, clearing cache and prompting re-login...');
+        // Clear Auth0 cache
+        localStorage.removeItem(`@@auth0spajs@@::${process.env.REACT_APP_AUTH0_CLIENT_ID}::${process.env.REACT_APP_AUTH0_AUDIENCE}::openid profile email offline_access`);
+        // Force re-authentication
+        loginWithRedirect({
+          authorizationParams: {
+            prompt: 'login'
+          }
+        });
+      }
+      throw error;
     }
   };
 
   const fetchTokens = async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !apiClient) return;
     
     try {
-      const token = await getToken();
       console.log('Fetching tokens from API...');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v1/tokens`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiClient.get<{ tokens: number }>('/api/v1/tokens');
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Token data received:', data);
-        setTokens(data.tokens);
+      if (response.data) {
+        console.log('Token data received:', response.data);
+        setTokens(response.data.tokens);
       } else {
-        console.error('Failed to fetch tokens:', response.status);
+        console.error('Failed to fetch tokens:', response.error);
+        // Don't trigger auth error for token fetch failures
+        // as this can cause infinite loops
       }
     } catch (error) {
       console.error('Error fetching tokens:', error);
+      // Don't trigger auth error for token fetch failures
     }
   };
 
@@ -73,11 +88,48 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     fetchTokens();
   };
 
+  // Initialize API client
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      fetchTokens();
+      const client = new ApiClient(
+        process.env.REACT_APP_API_URL || '', 
+        {
+          getToken: async () => {
+            try {
+              const token = await getAccessTokenSilently();
+              return token;
+            } catch (error) {
+              console.error('Error getting token in ApiClient:', error);
+              throw error;
+            }
+          },
+          onAuthError: () => {
+            console.log('Authentication error detected');
+            // Only redirect if we're not already in the process of authenticating
+            if (!isLoading && !isRedirecting && isAuthenticated) {
+              console.log('Redirecting to login due to auth error...');
+              setIsRedirecting(true);
+              loginWithRedirect();
+            } else {
+              console.log('Skipping redirect - already authenticating, redirecting, or not authenticated');
+            }
+          }
+        }
+      );
+      setApiClient(client);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, getAccessTokenSilently, loginWithRedirect]);
+
+  // Fetch tokens when API client is ready
+  useEffect(() => {
+    if (apiClient) {
+      // Add a small delay to ensure authentication is fully settled
+      const timer = setTimeout(() => {
+        fetchTokens();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [apiClient]);
 
   return (
     <AuthContext.Provider
@@ -89,7 +141,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         logout: () => auth0Logout({ logoutParams: { returnTo: window.location.origin } }),
         getToken,
         tokens,
-        refreshTokens
+        refreshTokens,
+        apiClient
       }}
     >
       {children}
@@ -104,7 +157,8 @@ export const Auth0Wrapper: React.FC<{children: React.ReactNode}> = ({ children }
       clientId={process.env.REACT_APP_AUTH0_CLIENT_ID || ''}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        audience: process.env.REACT_APP_AUTH0_AUDIENCE
+        audience: process.env.REACT_APP_AUTH0_AUDIENCE,
+        scope: 'openid profile email offline_access'
       }}
       cacheLocation="localstorage"
       useRefreshTokens={true}

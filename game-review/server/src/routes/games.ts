@@ -192,6 +192,20 @@ router.post('/games/sync', authenticateToken, async (req: AuthRequest, res) => {
               id, user_id, map_name, game_mode, duration_seconds, season, patch, server,
               team_size, average_rating, average_mmr, played_at, status, winning_team, winner_names, players
             ) VALUES ${gameValueStrings}
+            ON CONFLICT (id, user_id) DO UPDATE SET
+              map_name = EXCLUDED.map_name,
+              game_mode = EXCLUDED.game_mode,
+              duration_seconds = EXCLUDED.duration_seconds,
+              season = EXCLUDED.season,
+              patch = EXCLUDED.patch,
+              server = EXCLUDED.server,
+              team_size = EXCLUDED.team_size,
+              average_rating = EXCLUDED.average_rating,
+              average_mmr = EXCLUDED.average_mmr,
+              played_at = EXCLUDED.played_at,
+              winning_team = EXCLUDED.winning_team,
+              winner_names = EXCLUDED.winner_names,
+              players = EXCLUDED.players
           `, flatGameValues);
           
           console.log(`✅ Successfully inserted ${gameValues.length} games with embedded players`);

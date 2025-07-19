@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ModelSelectionModal from '../components/ModelSelectionModal';
+import DonationModal from '../components/DonationModal';
 
 interface GamePlayer {
   team_number: number;
@@ -38,7 +39,7 @@ interface GamesResponse {
 }
 
 const Games: React.FC = () => {
-  const { getToken, refreshTokens, tokens } = useAuth();
+  const { refreshTokens, tokens, apiClient } = useAuth();
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,74 +48,121 @@ const Games: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+
+  // Helper function to determine if a game is ready for review
+  const isGameReady = (game: Game): boolean => {
+    // If the game has an explicit status, use it
+    if (game.status === 'reviewed' || game.status === 'reviewing') {
+      return true;
+    }
+
+    // Check if game has summary data (duration exists and players have results)
+    const hasDuration = game.duration_seconds != null && game.duration_seconds > 0;
+    const hasPlayerResults = game.players.some(player => player.result && player.result !== null);
+
+    return hasDuration && hasPlayerResults;
+  };
+
+  // Get the display status for a game
+  const getGameDisplayStatus = (game: Game): { status: string; color: string; dotColor: string } => {
+    if (game.status === 'reviewed') {
+      return { status: 'Reviewed', color: 'text-green-400', dotColor: 'bg-green-400' };
+    }
+    if (game.status === 'reviewing') {
+      return { status: 'Reviewing...', color: 'text-orange-400', dotColor: 'bg-orange-400 animate-pulse' };
+    }
+    if (isGameReady(game)) {
+      return { status: 'Ready', color: 'text-blue-400', dotColor: 'bg-blue-400' };
+    }
+    return { status: 'Processing...', color: 'text-gray-400', dotColor: 'bg-gray-400' };
+  };
+
+  // Format game mode for display
+  const formatGameMode = (gameMode: string): string => {
+    // Convert game mode to more readable format
+    switch (gameMode?.toLowerCase()) {
+      case 'ranked_1v1':
+        return 'Ranked 1v1';
+      case 'ranked_2v2':
+        return 'Ranked 2v2';
+      case 'ranked_3v3':
+        return 'Ranked 3v3';
+      case 'ranked_4v4':
+        return 'Ranked 4v4';
+      case 'quick_match_1v1':
+        return 'Quick Match 1v1';
+      case 'quick_match_2v2':
+        return 'Quick Match 2v2';
+      case 'quick_match_3v3':
+        return 'Quick Match 3v3';
+      case 'quick_match_4v4':
+        return 'Quick Match 4v4';
+      case 'custom':
+        return 'Custom';
+      default:
+        return gameMode || 'Unknown';
+    }
+  };
+  const [donationModalOpen, setDonationModalOpen] = useState(false);
   const hasInitialized = useRef(false);
 
-  const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
   const autoSyncAndLoadGames = useCallback(async () => {
+    if (!apiClient) return;
+
     setIsLoading(true);
     try {
-      const token = await getToken();
-
       // First sync games from AOE4World
-      const syncResponse = await fetch(`${apiBase}/api/v1/games/sync`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const syncResponse = await apiClient.post('/api/v1/games/sync');
 
-      if (syncResponse.ok) {
+      if (syncResponse.status === 200) {
         console.log('Games synced successfully');
       } else {
         console.warn('Game sync failed, proceeding to load existing games');
       }
 
       // Then load games (whether sync succeeded or failed)
-      const gamesResponse = await fetch(`${apiBase}/api/v1/games`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const gamesResponse = await apiClient.get<GamesResponse>('/api/v1/games');
 
-      if (gamesResponse.ok) {
-        const data: GamesResponse = await gamesResponse.json();
-        setGames(data.games);
+      if (gamesResponse.data) {
+        setGames(gamesResponse.data.games);
       } else {
-        console.error('Failed to load games');
+        console.error('Failed to load games:', gamesResponse.error);
       }
     } catch (error) {
       console.error('Error syncing and loading games:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [apiBase, getToken]);
+  }, [apiClient]);
 
   const loadGames = useCallback(async (showLoading = true) => {
+    if (!apiClient) return;
+
     if (showLoading) setIsLoading(true);
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiBase}/api/v1/games`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await apiClient.get<GamesResponse>('/api/v1/games');
 
-      if (response.ok) {
-        const data: GamesResponse = await response.json();
-        setGames(data.games);
+      if (response.data) {
+        setGames(response.data.games);
       } else {
-        console.error('Failed to load games');
+        console.error('Failed to load games:', response.error);
       }
     } catch (error) {
       console.error('Error loading games:', error);
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [apiBase, getToken]);
+  }, [apiClient]);
 
 
   const handleRequestReview = (gameId: number) => {
+    // Check if user has tokens
+    if (tokens === 0) {
+      setDonationModalOpen(true);
+      return;
+    }
+
     setSelectedGameId(gameId);
     setModelModalOpen(true);
   };
@@ -126,20 +174,15 @@ const Games: React.FC = () => {
   };
 
   const requestReview = async (gameId: number, type: 'regular' | 'elite') => {
+    if (!apiClient) return;
+
     setReviewingGames(prev => new Set(prev).add(gameId));
+    let success = false;
 
     try {
-      const token = await getToken();
-      const response = await fetch(`${apiBase}/api/v1/games/${gameId}/review`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ type })
-      });
+      const response = await apiClient.post(`/api/v1/games/${gameId}/review`, { type });
 
-      if (response.ok) {
+      if (response.status === 202) {
         // Update game status to reviewing
         setGames(prev => prev.map(game =>
           game.id === gameId
@@ -151,25 +194,25 @@ const Games: React.FC = () => {
         console.log('Review request successful, refreshing tokens...');
         refreshTokens();
         setErrorMessage(null);
+        success = true;
       } else {
-        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = 'Failed to request review';
+        setErrorMessage(errorMsg);
 
-        if (errorData.code === 'INSUFFICIENT_TOKENS') {
-          setErrorMessage('Insufficient tokens! You need at least 1 token to request a review.');
-        } else {
-          setErrorMessage(errorData.error || 'Failed to request review');
-        }
-
-        console.error('Failed to request review:', errorData);
+        console.error('Failed to request review:', errorMsg);
       }
     } catch (error) {
       console.error('Error requesting review:', error);
+      setErrorMessage('Network error. Please try again.');
     } finally {
-      setReviewingGames(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(gameId);
-        return newSet;
-      });
+      // Only clear reviewing state if the request failed
+      if (!success) {
+        setReviewingGames(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gameId);
+          return newSet;
+        });
+      }
     }
   };
 
@@ -187,9 +230,14 @@ const Games: React.FC = () => {
     return game.map_name || 'Unknown Map';
   };
 
+  // Blue image data URL for missing images
+  const BLUE_IMAGE_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mO8//8/AzoABf4C/qc1gYQAAAAASUVORK5CYII=';
+
   const getMapImage = (mapName: string) => {
     // Real AOE4World map images
+    // maps
     const mapImages: { [key: string]: string } = {
+      'Hidden Valley': 'https://static.aoe4world.com/assets/maps/hidden_valley-805beca1bb4e706ca9de9d75f07a8ca031866511f576a5decf70227ba9f6bf29.png',
       'Dry Arabia': 'https://static.aoe4world.com/assets/maps/dry_arabia-a38664e3a1140c77c184c56ce6ccc91b83ab9bf9e69f463621bf4acc6e663240.png',
       'Gorge': 'https://static.aoe4world.com/assets/maps/gorge-2957c507ddfc9f5dd65204119a742da12c2e29bb6b462537f88dcc624d1a423d.png',
       'Hideout': 'https://static.aoe4world.com/assets/maps/hideout-844a7defa35996b750bc7ddd26d0ba0bc3185bc407bfb0f07b3d391982c96471.png',
@@ -216,13 +264,24 @@ const Games: React.FC = () => {
       'Carmel': 'https://static.aoe4world.com/assets/maps/carmel-78bdc24e1ccb991db6e122afb6f021ab2ffcfc57e6721aaf65533988dfc79213.png',
       'Lipany': 'https://static.aoe4world.com/assets/maps/lipany-d1e494f8fd09007b948dee6ce146402ab57a382ca9c52265f140d668c3ea6b5e.png',
       'Lakeside': 'https://static.aoe4world.com/assets/maps/lakeside-49c8b4267fab0c335d28aeff1d73a868587945d252f02f5ebead9c2fd92c2dbf.png',
-      'The Pit': 'https://static.aoe4world.com/assets/maps/the_pit-767d4fae13574b943729abec3860147a381f60ced9faca5e018e7878be9ff629.png'
+      'The Pit': 'https://static.aoe4world.com/assets/maps/the_pit-767d4fae13574b943729abec3860147a381f60ced9faca5e018e7878be9ff629.png',
+      'Waterlanes': 'https://static.aoe4world.com/assets/maps/waterlanes-278d516946d4496c7b09739a9e3e63360beb87903a5c97c81e197d1cff77d163.png',
+      'High View': 'https://static.aoe4world.com/assets/maps/high_view-554e3c206c2ab5de03eff825bae1782c995f43c3d49045c445c37167755dc756.png',
+      'Forest Ponds': 'https://static.aoe4world.com/assets/maps/forest_ponds-251f78780b3deee83db9becc49ba6a63a8927486ed7c36e0e5ad9685899e5aff.png',
+      'French Pass': 'https://static.aoe4world.com/assets/maps/french_pass-3ccf8fbacfc7a55fe17fcc69e1409fd6d067ca4394c9fedd55b9ab195c7363cb.png',
+      'Hill and Dale': 'https://static.aoe4world.com/assets/maps/hill_and_dale-7867678344511f75ca224324806ade2552c4667e89e57a2153c02fd44684ddee.png',
+      'Golden Pit': 'https://static.aoe4world.com/assets/maps/golden_pit-58ea140f24ea6a779ba831592617f59e317b4b3f5e495ecaa2667fc12fd8e7e0.png',
+      'Golden Heights': 'https://static.aoe4world.com/assets/maps/golden_heights-cbd73e5a06838ba419de8da4981c4333428b5509b7d8f8d7c764f160d614505a.png',
+      'Hedgemaze': 'https://static.aoe4world.com/assets/maps/hedgemaze-34e8d306311f6e0ab43cbcd3c4af2b77a6c99719ae97f8572d8b210b88cf0acc.png',
+      'Waterholes': 'https://static.aoe4world.com/assets/maps/waterholes-963431442e462e2f4607e3b7c902f8057b31fdc857e4ce60d992b881be46d2e9.png',
+      'Haywire': 'https://static.aoe4world.com/assets/maps/haywire-a4c3af7b5fd60a3d6101126aede230dee1e18f8900ad6183ac5f375da66c3553.png',
+      'Wetlands': 'https://static.aoe4world.com/assets/maps/wetlands-d2ccdd59c13238cf9f17fef6b8825bed78cf22cdc8fe8d8d78f985b7b1a1548f.png'
     };
-
+    debugger
     const normalizedMapName = mapName.trim();
 
     // Return real image URL or fallback to placeholder
-    return mapImages[normalizedMapName] || `https://via.placeholder.com/300x200/374151/6B7280?text=${encodeURIComponent(mapName)}`;
+    return mapImages[normalizedMapName] || BLUE_IMAGE_DATA_URL;
   };
 
   const getCivFlag = (civName: string) => {
@@ -247,11 +306,11 @@ const Games: React.FC = () => {
       'order_of_the_dragon': 'https://static.aoe4world.com/assets/flags/order_of_the_dragon-cad6fa9212fd59f9b52aaa83b4a6173f07734d38d37200f976bcd46827667424.png',
       'ottomans': 'https://static.aoe4world.com/assets/flags/ottomans-83c752dcbe46ad980f6f65dd719b060f8fa2d0707ab8e2ddb1ae5d468fc019a2.png',
       'rus': 'https://static.aoe4world.com/assets/flags/rus-cb31fb6f8663187f63136cb2523422a07161c792de27852bdc37f0aa1b74911b.png',
-      'zhu_xis_legacy': 'https://static.aoe4world.com/assets/flags/zhu_xis_legacy-c4d119a5fc11f2355f41d206a8b65bea8bab2286d09523a81b7d662d1aad0762.png'
+      'zhu_xis_legacy': 'https://static.aoe4world.com/assets/flags/zhu_xis_legacy-c4d119a5fc11f2355f41d206a8b65bea8bab2286d09523a81b7d662d1aad0762.png',
     };
 
     const normalizedCivName = civName.toLowerCase().trim().replace(/\s+/g, '_');
-    return civFlags[normalizedCivName] || `https://via.placeholder.com/32x24/374151/E2E8F0?text=${civName.charAt(0).toUpperCase()}`;
+    return civFlags[normalizedCivName] || BLUE_IMAGE_DATA_URL;
   };
 
 
@@ -320,11 +379,11 @@ const Games: React.FC = () => {
   }, [pollingInterval]);
 
   useEffect(() => {
-    if (!hasInitialized.current) {
+    if (!hasInitialized.current && apiClient) {
       hasInitialized.current = true;
       autoSyncAndLoadGames();
     }
-  }, []); // Run only once on mount
+  }, [apiClient, autoSyncAndLoadGames]); // Run when apiClient is ready
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black">
@@ -340,7 +399,7 @@ const Games: React.FC = () => {
         <div className="mb-8 sm:mb-12 text-center">
           <div className="inline-flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
             <div className="relative flex items-center justify-center">
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                   <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
@@ -395,7 +454,7 @@ const Games: React.FC = () => {
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <div className="relative mb-8">
-                <div className="w-16 h-16 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin mx-auto"></div>
+                <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
                 <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-500/50 rounded-full animate-spin mx-auto" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
               </div>
               <div className="space-y-2">
@@ -412,19 +471,21 @@ const Games: React.FC = () => {
         ) : games.length === 0 ? (
           /* Empty State */
           <div className="text-center py-20">
-            <div className="relative mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl flex items-center justify-center mx-auto shadow-2xl border border-gray-700">
-                <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div className="relative mb-8 flex justify-center">
+              <div className="relative w-24 h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl flex items-center justify-center shadow-2xl border border-gray-700 overflow-hidden">
+                <img
+                  src="/sentegamesicon.png"
+                  alt="Sente Games"
+                  className="w-16 h-16 object-cover"
+                />
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-500/20 rounded-full animate-ping"></div>
               </div>
-              <div className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500/20 rounded-full animate-ping"></div>
             </div>
             <h3 className="text-2xl font-bold text-white mb-3">Ready for Battle</h3>
             <p className="text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">Link your Steam account and start playing AOE4 matches to see your epic battles here</p>
             <button
               onClick={() => navigate('/settings')}
-              className="group relative px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/25"
+              className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25"
             >
               <span className="relative z-10 flex items-center space-x-2">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -432,7 +493,7 @@ const Games: React.FC = () => {
                 </svg>
                 <span>Connect Steam Account</span>
               </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-400 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
             </button>
           </div>
         ) : (
@@ -441,111 +502,122 @@ const Games: React.FC = () => {
             {games.map((game) => (
               <div
                 key={game.id}
-                className="group relative bg-gradient-to-br from-gray-800/60 via-gray-800/40 to-gray-900/60 backdrop-blur-sm rounded-2xl border border-gray-700/60 hover:border-orange-500/30 transition-all duration-200 hover:shadow-xl hover:shadow-orange-500/5 overflow-hidden transform hover:scale-[1.01]"
+                className="group relative bg-gradient-to-br from-slate-800/90 via-slate-900/80 to-gray-900/90 backdrop-blur-md rounded-3xl border border-slate-700/50 hover:border-blue-400/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10 overflow-hidden transform hover:scale-[1.02] hover:-translate-y-1"
               >
-                {/* Subtle glow effects */}
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/3 via-purple-500/2 to-blue-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl pointer-events-none"></div>
+                {/* Enhanced glow effects */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-all duration-500 rounded-3xl pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-400/2 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700 rounded-3xl pointer-events-none"></div>
 
                 <div className="relative flex flex-col sm:flex-row p-4 sm:p-6 gap-4 sm:gap-6">
-                  {/* Left Section - Enhanced Map Image */}
+                  {/* Left Section - Modern Map Card */}
                   <div className="flex-shrink-0 w-full sm:w-auto">
-                    <div className="relative w-full h-32 sm:w-40 sm:h-28 rounded-xl overflow-hidden shadow-2xl ring-2 ring-white/10 group-hover:ring-orange-400/30 transition-all duration-300">
+                    <div className="relative w-full h-36 sm:w-48 sm:h-32 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 group-hover:ring-blue-400/40 transition-all duration-500 group-hover:shadow-blue-500/20">
                       <img
                         src={getMapImage(getMapName(game))}
                         alt={getMapName(game)}
-                        className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-110"
+                        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 group-hover:brightness-125 group-hover:contrast-110"
                         onError={(e) => {
-                          e.currentTarget.src = `https://via.placeholder.com/160x112/374151/6B7280?text=${encodeURIComponent(getMapName(game))}`;
+                          e.currentTarget.src = BLUE_IMAGE_DATA_URL;
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <p className="text-white text-xs sm:text-sm font-bold truncate drop-shadow-lg">{getMapName(game)}</p>
+                      {/* Modern gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      
+                      {/* Map name with better typography */}
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/10">
+                          <p className="text-white text-sm font-semibold truncate">{getMapName(game)}</p>
+                        </div>
                       </div>
-                      {/* Enhanced Status Indicator */}
-                      <div className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-white/80 ${game.status === 'reviewed'
-                        ? 'bg-green-400 shadow-lg shadow-green-400/60'
-                        : game.status === 'reviewing'
-                          ? 'bg-orange-400 animate-pulse shadow-lg shadow-orange-400/60'
-                          : 'bg-gray-400 shadow-lg shadow-gray-400/60'
-                        }`}>
-                        <div className={`absolute inset-0.5 rounded-full ${game.status === 'reviewed'
-                          ? 'bg-green-300'
-                          : game.status === 'reviewing'
-                            ? 'bg-orange-300'
-                            : 'bg-gray-300'
-                          }`}></div>
-                      </div>
+                      
+                      {/* Modern status indicator */}
+                      {(() => {
+                        const displayStatus = getGameDisplayStatus(game);
+                        return (
+                          <div className="absolute top-3 right-3">
+                            <div className={`flex items-center space-x-2 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20`}>
+                              <div className={`w-2 h-2 rounded-full ${displayStatus.dotColor}`}></div>
+                              <span className={`text-xs font-medium ${displayStatus.color}`}>
+                                {displayStatus.status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  {/* Center Section - Enhanced Game Info */}
-                  <div className="flex-1 min-w-0">
-                    {/* Header with all player flags */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden flex-1 h-[50px]">
-                        {(() => {
-                          const { team1, team2 } = getAllPlayerFlags(game);
-                          return (
-                            <div className="flex items-center space-x-3 sm:space-x-6">
-                              {/* Team 1 */}
-                              <div className="flex items-center space-x-1 sm:space-x-2">
-                                {team1.map((player: GamePlayer, index: number) => (
-                                  <div key={index} className="relative">
-                                    <img
-                                      src={getCivFlag(player.civilization)}
-                                      alt={player.civilization}
-                                      className="w-6 h-4 sm:w-8 sm:h-6 object-cover rounded-md border-2 border-blue-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
-                                      onError={(e) => {
-                                        e.currentTarget.src = `https://via.placeholder.com/32x24/374151/E2E8F0?text=${player.civilization.charAt(0).toUpperCase()}`;
-                                      }}
-                                    />
-                                    {player.is_user && (
-                                      <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full border border-white/50"></div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
+                  {/* Center Section - Modern Game Info */}
+                  <div className="flex-1 min-w-0 space-y-4">
+                    {/* Game Header - Clean & Modern */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <h3 className="text-lg font-bold text-white truncate">
+                            {game.team_size} • {formatGameMode(game.game_mode)}
+                          </h3>
+                          <div className="flex items-center space-x-2 px-2 py-1 bg-slate-700/50 rounded-full">
+                            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                            <span className="text-xs text-slate-300 font-medium">Season {game.season}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Teams with improved layout */}
+                        <div className="flex items-center space-x-4">
+                          {(() => {
+                            const { team1, team2 } = getAllPlayerFlags(game);
+                            return (
+                              <>
+                                {/* Team 1 */}
+                                <div className="flex items-center space-x-2">
+                                  {team1.map((player: GamePlayer, index: number) => (
+                                    <div key={index} className="relative group/player">
+                                      <div className="relative w-8 h-6 rounded-lg overflow-hidden ring-2 ring-blue-400/40 group-hover/player:ring-blue-400 transition-all duration-200">
+                                        <img
+                                          src={getCivFlag(player.civilization)}
+                                          alt={player.civilization}
+                                          className="w-full h-full object-cover group-hover/player:scale-105 transition-transform duration-200"
+                                          onError={(e) => {
+                                            e.currentTarget.src = BLUE_IMAGE_DATA_URL;
+                                          }}
+                                        />
+                                        {player.is_user && (
+                                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800 shadow-lg"></div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
 
-                              {/* VS Divider */}
-                              <div className="flex items-center">
-                                <span className="mx-1 sm:mx-1 text-sm sm:text-lg font-bold text-orange-400">VS</span>
-                              </div>
+                                {/* Modern VS */}
+                                <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full border border-blue-400/30">
+                                  <span className="text-xs font-bold text-blue-300">VS</span>
+                                </div>
 
-                              {/* Team 2 */}
-                              <div className="flex items-center space-x-1 sm:space-x-2">
-                                {team2.map((player: GamePlayer, index: number) => (
-                                  <div key={index} className="relative">
-                                    <img
-                                      src={getCivFlag(player.civilization)}
-                                      alt={player.civilization}
-                                      className="w-6 h-4 sm:w-8 sm:h-6 object-cover rounded-md border-2 border-red-400/60 shadow-lg hover:scale-105 transition-transform duration-200"
-                                      onError={(e) => {
-                                        e.currentTarget.src = `https://via.placeholder.com/32x24/374151/E2E8F0?text=${player.civilization.charAt(0).toUpperCase()}`;
-                                      }}
-                                    />
-                                    {player.is_user && (
-                                      <div className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded-full border border-white/50"></div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      <div className="text-right bg-gray-800/50 px-2 sm:px-3 py-1 sm:py-2 rounded-lg border border-gray-700/50">
-                        <p className="text-xs text-gray-400 mb-1 uppercase tracking-wide">Status</p>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-2 h-2 rounded-full ${game.status === 'reviewed' ? 'bg-green-400' :
-                            game.status === 'reviewing' ? 'bg-orange-400 animate-pulse' : 'bg-gray-400'
-                            }`}></div>
-                          <span className={`text-sm font-bold ${game.status === 'reviewed' ? 'text-green-400' :
-                            game.status === 'reviewing' ? 'text-orange-400' : 'text-gray-400'
-                            }`}>
-                            {game.status === 'reviewed' ? 'Reviewed' :
-                              game.status === 'reviewing' ? 'Reviewing...' : 'Ready'}
-                          </span>
+                                {/* Team 2 */}
+                                <div className="flex items-center space-x-2">
+                                  {team2.map((player: GamePlayer, index: number) => (
+                                    <div key={index} className="relative group/player">
+                                      <div className="relative w-8 h-6 rounded-lg overflow-hidden ring-2 ring-purple-400/40 group-hover/player:ring-purple-400 transition-all duration-200">
+                                        <img
+                                          src={getCivFlag(player.civilization)}
+                                          alt={player.civilization}
+                                          className="w-full h-full object-cover group-hover/player:scale-105 transition-transform duration-200"
+                                          onError={(e) => {
+                                            e.currentTarget.src = BLUE_IMAGE_DATA_URL;
+                                          }}
+                                        />
+                                        {player.is_user && (
+                                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-slate-800 shadow-lg"></div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -564,8 +636,8 @@ const Games: React.FC = () => {
                           {getUserResult(game) === 'unknown' ? 'TBD' : getUserResult(game).toUpperCase()}
                         </span>
                       </div>
-                      <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 rounded-lg p-2 sm:p-3 border border-orange-500/20">
-                        <p className="text-xs text-orange-300 font-semibold uppercase tracking-wide mb-1">⏱️ Duration</p>
+                      <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-lg p-2 sm:p-3 border border-blue-500/20">
+                        <p className="text-xs text-blue-300 font-semibold uppercase tracking-wide mb-1">⏱️ Duration</p>
                         <p className="text-sm sm:text-lg font-bold text-white">{formatDuration(game.duration_seconds)}</p>
                       </div>
                       <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg p-2 sm:p-3 border border-green-500/20 col-span-2 sm:col-span-1">
@@ -577,7 +649,7 @@ const Games: React.FC = () => {
 
                   {/* Right Section - Enhanced Actions */}
                   <div className="flex-shrink-0 flex flex-col sm:justify-center space-y-2 sm:space-y-3 mt-4 sm:mt-0">
-                    {game.status === 'raw' && (
+                    {game.status === 'raw' && isGameReady(game) && (
                       <button
                         onClick={() => handleRequestReview(game.id)}
                         disabled={reviewingGames.has(game.id)}
@@ -596,11 +668,20 @@ const Games: React.FC = () => {
                       </button>
                     )}
 
-                    {game.status === 'reviewing' && (
-                      <div className="relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-600/20 to-orange-500/20 border-2 border-orange-500/40 rounded-xl text-orange-300 text-xs sm:text-sm font-bold text-center">
-                        <div className="absolute inset-0 bg-orange-400/10 rounded-xl animate-pulse"></div>
+                    {game.status === 'raw' && !isGameReady(game) && (
+                      <div className="relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-gray-700/20 to-gray-600/20 border-2 border-gray-500/40 rounded-xl text-gray-400 text-xs sm:text-sm font-bold text-center">
                         <span className="relative flex items-center justify-center space-x-2">
-                          <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Processing Match...</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {game.status === 'reviewing' && (
+                      <div className="relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-600/20 to-blue-500/20 border-2 border-blue-500/40 rounded-xl text-blue-300 text-xs sm:text-sm font-bold text-center">
+                        <div className="absolute inset-0 bg-blue-400/10 rounded-xl animate-pulse"></div>
+                        <span className="relative flex items-center justify-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                           <span>Reviewing Battle...</span>
                         </span>
                       </div>
@@ -609,9 +690,9 @@ const Games: React.FC = () => {
                     {game.review && (
                       <button
                         onClick={() => navigate(`/review/${game.review!.id}`)}
-                        className="group/btn relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-green-500/30"
+                        className="group/btn relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-yellow-500/30"
                       >
-                        <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-green-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-amber-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                         <span className="relative flex items-center space-x-2">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -633,7 +714,7 @@ const Games: React.FC = () => {
 
                         return (
                           <div key={teamNum}>
-                            <h6 className={`text-xs font-bold uppercase tracking-wide mb-2 ${teamNum === 1 ? 'text-blue-400' : 'text-red-400'
+                            <h6 className={`text-xs font-bold uppercase tracking-wide mb-2 ${teamNum === 1 ? 'text-blue-400' : 'text-purple-400'
                               }`}>Team {teamNum}</h6>
                             <div className="space-y-1">
                               {teamPlayers.map((player, idx) => (
@@ -643,7 +724,7 @@ const Games: React.FC = () => {
                                     alt={player.civilization}
                                     className="w-4 h-3 object-cover rounded shadow-sm"
                                     onError={(e) => {
-                                      e.currentTarget.src = `https://via.placeholder.com/16x12/374151/E2E8F0?text=${player.civilization.charAt(0).toUpperCase()}`;
+                                      e.currentTarget.src = BLUE_IMAGE_DATA_URL;
                                     }}
                                   />
                                   <span className={`font-medium truncate ${player.is_user ? 'text-blue-300' : 'text-gray-300'
@@ -651,7 +732,7 @@ const Games: React.FC = () => {
                                     {player.player_name}
                                   </span>
                                   {player.rating && (
-                                    <span className="text-xs text-orange-400 font-bold">
+                                    <span className="text-xs text-blue-400 font-bold">
                                       {player.rating}
                                     </span>
                                   )}
@@ -696,6 +777,13 @@ const Games: React.FC = () => {
           setSelectedGameId(null);
         }}
         onConfirm={handleModelSelection}
+        userTokens={tokens}
+      />
+
+      {/* Donation Modal */}
+      <DonationModal
+        isOpen={donationModalOpen}
+        onClose={() => setDonationModalOpen(false)}
         userTokens={tokens}
       />
     </div>
