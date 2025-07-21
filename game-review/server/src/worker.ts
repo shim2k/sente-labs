@@ -27,6 +27,7 @@ interface ReviewTask {
   taskId: string;
   gameId: number;
   userId: string;
+  notes?: string; // Optional user notes for AI guidance
   discordUserId?: string; // Optional Discord user ID for notifications
   replayData?: Buffer; // Optional replay file data for premium reviews
 }
@@ -129,7 +130,10 @@ async function processReviewTask(task: ReviewTask) {
       playerName: playerName,
       gameData: detailedGameData,
       replayData: replayAnalysis,
-      llmModel: llmModel
+      llmModel: llmModel,
+      userId: task.userId,
+      gameId: task.gameId.toString(),
+      notes: task.notes
     });
     
     // Check if review indicates insufficient data
@@ -166,14 +170,46 @@ async function processReviewTask(task: ReviewTask) {
     console.log(`Review completed for user ${task.userId}, game ${task.gameId}, review ID: ${reviewResult.rows[0].id}`);
 
   } catch (error) {
-    console.error(`Review task failed:`, error);
+    console.error(`Review task failed for user ${task.userId}, game ${task.gameId}:`, error);
+
+    // Determine error type and handle appropriately
+    let errorType = 'UNKNOWN_ERROR';
+    let errorMessage = 'Unknown error';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Check for token limit errors
+      if (error.message.includes('maximum context length') || 
+          error.message.includes('tokens') && error.message.includes('exceed')) {
+        errorType = 'TOKEN_LIMIT_EXCEEDED';
+        console.log(`🪙 Token limit exceeded for user ${task.userId}, game ${task.gameId}: ${error.message}`);
+      }
+      // Check for OpenAI BadRequestError
+      else if (error.name === 'BadRequestError' && error.message.includes('400')) {
+        errorType = 'BAD_REQUEST';
+        console.log(`🚫 OpenAI BadRequest for user ${task.userId}, game ${task.gameId}: ${error.message}`);
+      }
+      // Check for rate limiting
+      else if (error.message.includes('rate limit') || error.message.includes('429')) {
+        errorType = 'RATE_LIMITED';
+        console.log(`⏰ Rate limited for user ${task.userId}, game ${task.gameId}: ${error.message}`);
+      }
+    }
 
     // Mark task as failed and increment retries
     await client.query(`
       UPDATE review_tasks 
-      SET job_state = 'failed', retries = retries + 1, error = $2, updated_at = NOW() 
+      SET job_state = 'failed', retries = retries + 1, error = $2, error_type = $3, updated_at = NOW() 
       WHERE id = $1
-    `, [task.taskId, error instanceof Error ? error.message : 'Unknown error']);
+    `, [task.taskId, errorMessage, errorType]);
+
+    // Update game status back to raw if it was stuck in reviewing
+    await client.query(`
+      UPDATE games SET status = 'raw' WHERE db_id = (
+        SELECT game_db_id FROM review_tasks WHERE id = $1
+      )
+    `, [task.taskId]);
 
     throw error;
   } finally {

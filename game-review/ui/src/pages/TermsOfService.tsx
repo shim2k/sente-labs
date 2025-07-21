@@ -381,9 +381,9 @@ const TermsOfService: React.FC = () => {
                 Questions, concerns, or requests related to this Agreement can be directed to:
               </p>
               <ul className='list-none mt-2 text-gray-300'>
-                <li>Sente Games</li>
+                <li>Sente Games</li>
                 <li>Creator: Shimi Razilov</li>
-                <li>Email: shim2k@gmail.com</li>
+                <li>Email: support@senteai.com</li>
                 <li>Attn: Legal</li>
               </ul>
             </section>

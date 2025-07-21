@@ -30,11 +30,11 @@ const Dashboard: React.FC = () => {
 
   // Check if user is admin by calling the backend
   const [isAdmin, setIsAdmin] = useState(false);
-  
+
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!apiClient) return;
-      
+
       try {
         await apiClient.get('/api/v1/admin/check');
         setIsAdmin(true);
@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     checkAdminStatus();
   }, [apiClient]);
 
@@ -206,8 +206,8 @@ const Dashboard: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyTrendsData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 stroke="#9ca3af"
                 tick={{ fill: '#9ca3af', fontSize: 12 }}
                 angle={-45}
@@ -215,11 +215,11 @@ const Dashboard: React.FC = () => {
                 height={60}
               />
               <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af' }} />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                 itemStyle={{ color: '#e5e7eb' }}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{ paddingTop: '20px' }}
                 iconType="line"
               />
@@ -240,8 +240,8 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.engagementSegments}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="engagement_segment" 
+                <XAxis
+                  dataKey="engagement_segment"
                   stroke="#9ca3af"
                   tick={{ fill: '#9ca3af', fontSize: 12 }}
                   angle={-20}
@@ -249,7 +249,7 @@ const Dashboard: React.FC = () => {
                   height={80}
                 />
                 <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af' }} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                   itemStyle={{ color: '#e5e7eb' }}
                 />
@@ -307,7 +307,7 @@ const Dashboard: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                   itemStyle={{ color: '#e5e7eb' }}
                 />
@@ -341,7 +341,7 @@ const Dashboard: React.FC = () => {
       {/* Profile Linking & Review Creation Analysis */}
       <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-6 mb-8">
         <h2 className="text-xl font-semibold text-gray-100 mb-4">Profile Linking & Review Creation Analysis</h2>
-        
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {analytics.profileLinkingSummary && analytics.profileLinkingSummary.map((item, index) => (
@@ -362,13 +362,13 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.profileLinkingAnalysis}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="profile_linked_status" 
+                <XAxis
+                  dataKey="profile_linked_status"
                   stroke="#9ca3af"
                   tick={{ fill: '#9ca3af', fontSize: 12 }}
                 />
                 <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af' }} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                   itemStyle={{ color: '#e5e7eb' }}
                 />
@@ -377,7 +377,7 @@ const Dashboard: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          
+
           {/* Analysis Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -393,20 +393,18 @@ const Dashboard: React.FC = () => {
                 {analytics.profileLinkingAnalysis && analytics.profileLinkingAnalysis.map((item, index) => (
                   <tr key={index} className="border-b border-gray-700/50">
                     <td className="py-2 text-gray-100">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        item.profile_linked_status === 'Linked' 
-                          ? 'bg-green-900/50 text-green-400' 
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.profile_linked_status === 'Linked'
+                          ? 'bg-green-900/50 text-green-400'
                           : 'bg-gray-700/50 text-gray-400'
-                      }`}>
+                        }`}>
                         {item.profile_linked_status}
                       </span>
                     </td>
                     <td className="py-2 text-gray-100">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        item.review_creation_status === 'Has Reviews' 
-                          ? 'bg-blue-900/50 text-blue-400' 
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.review_creation_status === 'Has Reviews'
+                          ? 'bg-blue-900/50 text-blue-400'
                           : 'bg-gray-700/50 text-gray-400'
-                      }`}>
+                        }`}>
                         {item.review_creation_status}
                       </span>
                     </td>
@@ -420,7 +418,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Conversion Funnel */}
-        <div className="mt-6 bg-gray-700/30 rounded-lg p-4">
+        {/* <div className="mt-6 bg-gray-700/30 rounded-lg p-4">
           <h3 className="text-lg font-semibold text-gray-100 mb-4">User Conversion Funnel</h3>
           <div className="space-y-3">
             {analytics.profileLinkingSummary && analytics.profileLinkingSummary.slice(0, 4).map((item, index) => {
@@ -453,7 +451,7 @@ const Dashboard: React.FC = () => {
               );
             })}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Top Users by Activity */}

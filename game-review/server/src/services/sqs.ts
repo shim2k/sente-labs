@@ -15,6 +15,7 @@ export async function sendSQSMessage(payload: {
   taskId: string;
   gameId: number;
   userId: string;
+  notes?: string;
 }) {
   const QUEUE_URL = process.env.SQS_QUEUE_URL;
   

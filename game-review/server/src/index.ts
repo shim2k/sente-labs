@@ -15,6 +15,7 @@ import gamesRoutes from './routes/games';
 import reviewsRoutes from './routes/reviews';
 import adminRoutes from './routes/admin';
 import waitlistRoutes from './routes/waitlist';
+import webhookRoutes from './routes/webhooks';
 
 // Debug environment variables
 console.log('Environment variables loaded:');
@@ -70,6 +71,7 @@ app.use('/api/v1', gamesRoutes);
 app.use('/api/v1', reviewsRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1', waitlistRoutes);
+app.use('/webhooks', webhookRoutes);
 // app.use('/api/v1/replays', replaysRoutes); // Removed - replay-parser service not available
 
 const server = createServer(app);

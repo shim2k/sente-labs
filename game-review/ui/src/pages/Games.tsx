@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ModelSelectionModal from '../components/ModelSelectionModal';
-import DonationModal from '../components/DonationModal';
+import PaymentModal from '../components/PaymentModal';
+import GameDataModal from '../components/GameDataModal';
 
 interface GamePlayer {
   team_number: number;
@@ -48,6 +49,8 @@ const Games: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modelModalOpen, setModelModalOpen] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [isRerunningReviews, setIsRerunningReviews] = useState<Set<string>>(new Set());
 
   // Helper function to determine if a game is ready for review
   const isGameReady = (game: Game): boolean => {
@@ -103,7 +106,10 @@ const Games: React.FC = () => {
         return gameMode || 'Unknown';
     }
   };
-  const [donationModalOpen, setDonationModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [gameDataModalOpen, setGameDataModalOpen] = useState(false);
+  const [checkingGameData, setCheckingGameData] = useState<Set<number>>(new Set());
+  const [checkingRerunData, setCheckingRerunData] = useState<Set<string>>(new Set());
   const hasInitialized = useRef(false);
 
 
@@ -156,31 +162,91 @@ const Games: React.FC = () => {
   }, [apiClient]);
 
 
-  const handleRequestReview = (gameId: number) => {
+  const handleRequestReview = async (gameId: number) => {
     // Check if user has tokens
     if (tokens === 0) {
-      setDonationModalOpen(true);
+      setPaymentModalOpen(true);
       return;
     }
 
-    setSelectedGameId(gameId);
-    setModelModalOpen(true);
-  };
-
-  const handleModelSelection = (type: 'regular' | 'elite') => {
-    if (selectedGameId) {
-      requestReview(selectedGameId, type);
+    // Check if game has detailed data
+    if (!apiClient) return;
+    
+    setCheckingGameData(prev => new Set(prev).add(gameId));
+    
+    try {
+      const response = await apiClient.get<{ hasDetailedData: boolean, message: string }>(`/api/v1/games/${gameId}/check-data`);
+      
+      if (response.data && !response.data.hasDetailedData) {
+        setGameDataModalOpen(true);
+        return;
+      }
+      
+      setSelectedGameId(gameId);
+      setModelModalOpen(true);
+    } catch (error) {
+      console.error('Error checking game data:', error);
+      setErrorMessage('Failed to check game data. Please try again.');
+    } finally {
+      setCheckingGameData(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(gameId);
+        return newSet;
+      });
     }
   };
 
-  const requestReview = async (gameId: number, type: 'regular' | 'elite') => {
+  const handleModelSelection = (type: 'regular' | 'elite', notes?: string) => {
+    if (selectedGameId) {
+      requestReview(selectedGameId, type, notes);
+    } else if (selectedReviewId) {
+      rerunReview(selectedReviewId, type, notes);
+    }
+  };
+
+  const handleRequestRerun = async (reviewId: string, gameId: number) => {
+    // Check if user has tokens
+    if (tokens === 0) {
+      setPaymentModalOpen(true);
+      return;
+    }
+
+    // Check if game has detailed data
+    if (!apiClient) return;
+    
+    setCheckingRerunData(prev => new Set(prev).add(reviewId));
+    
+    try {
+      const response = await apiClient.get<{ hasDetailedData: boolean, message: string }>(`/api/v1/games/${gameId}/check-data`);
+      
+      if (response.data && !response.data.hasDetailedData) {
+        setGameDataModalOpen(true);
+        return;
+      }
+      
+      setSelectedReviewId(reviewId);
+      setSelectedGameId(null); // Clear game ID when rerunning
+      setModelModalOpen(true);
+    } catch (error) {
+      console.error('Error checking game data:', error);
+      setErrorMessage('Failed to check game data. Please try again.');
+    } finally {
+      setCheckingRerunData(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(reviewId);
+        return newSet;
+      });
+    }
+  };
+
+  const requestReview = async (gameId: number, type: 'regular' | 'elite', notes?: string) => {
     if (!apiClient) return;
 
     setReviewingGames(prev => new Set(prev).add(gameId));
     let success = false;
 
     try {
-      const response = await apiClient.post(`/api/v1/games/${gameId}/review`, { type });
+      const response = await apiClient.post(`/api/v1/games/${gameId}/review`, { type, notes });
 
       if (response.status === 202) {
         // Update game status to reviewing
@@ -213,6 +279,51 @@ const Games: React.FC = () => {
           return newSet;
         });
       }
+    }
+  };
+
+  const rerunReview = async (reviewId: string, type: 'regular' | 'elite', notes?: string) => {
+    if (!apiClient) return;
+
+    setIsRerunningReviews(prev => new Set(prev).add(reviewId));
+    let success = false;
+
+    try {
+      const response = await apiClient.post(`/api/v1/reviews/${reviewId}/rerun`, { type, notes });
+
+      if (response.status === 202) {
+        // Find and update the game status to reviewing
+        setGames(prev => prev.map(game => {
+          if (game.review?.id === reviewId) {
+            return { ...game, status: 'reviewing' as const };
+          }
+          return game;
+        }));
+
+        // Refresh token count after successful request
+        console.log('Review rerun successful, refreshing tokens...');
+        refreshTokens();
+        setErrorMessage(null);
+        success = true;
+      } else {
+        const errorMsg = 'Failed to rerun review';
+        setErrorMessage(errorMsg);
+        console.error('Failed to rerun review:', errorMsg);
+      }
+    } catch (error) {
+      console.error('Error rerunning review:', error);
+      setErrorMessage('Network error. Please try again.');
+    } finally {
+      // Clear rerunning state regardless of success/failure
+      setIsRerunningReviews(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(reviewId);
+        return newSet;
+      });
+      
+      // Close modal and clear selection
+      setModelModalOpen(false);
+      setSelectedReviewId(null);
     }
   };
 
@@ -277,7 +388,6 @@ const Games: React.FC = () => {
       'Haywire': 'https://static.aoe4world.com/assets/maps/haywire-a4c3af7b5fd60a3d6101126aede230dee1e18f8900ad6183ac5f375da66c3553.png',
       'Wetlands': 'https://static.aoe4world.com/assets/maps/wetlands-d2ccdd59c13238cf9f17fef6b8825bed78cf22cdc8fe8d8d78f985b7b1a1548f.png'
     };
-    debugger
     const normalizedMapName = mapName.trim();
 
     // Return real image URL or fallback to placeholder
@@ -652,18 +762,31 @@ const Games: React.FC = () => {
                     {game.status === 'raw' && isGameReady(game) && (
                       <button
                         onClick={() => handleRequestReview(game.id)}
-                        disabled={reviewingGames.has(game.id)}
-                        className={`group/btn relative px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 ${reviewingGames.has(game.id)
+                        disabled={reviewingGames.has(game.id) || checkingGameData.has(game.id)}
+                        className={`group/btn relative px-4 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 ${(reviewingGames.has(game.id) || checkingGameData.has(game.id))
                           ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                           : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-xl hover:shadow-blue-500/30'
                           }`}
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-blue-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                         <span className="relative flex items-center space-x-2">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                          </svg>
-                          <span>{reviewingGames.has(game.id) ? 'Processing...' : 'Review Battle'}</span>
+                          {checkingGameData.has(game.id) ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : reviewingGames.has(game.id) ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                            </svg>
+                          )}
+                          <span>
+                            {checkingGameData.has(game.id) 
+                              ? 'Checking...' 
+                              : reviewingGames.has(game.id) 
+                                ? 'Processing...' 
+                                : 'Review Battle'
+                            }
+                          </span>
                         </span>
                       </button>
                     )}
@@ -688,18 +811,49 @@ const Games: React.FC = () => {
                     )}
 
                     {game.review && (
-                      <button
-                        onClick={() => navigate(`/review/${game.review!.id}`)}
-                        className="group/btn relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-yellow-500/30"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-amber-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                        <span className="relative flex items-center space-x-2">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>View Analysis</span>
-                        </span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => navigate(`/review/${game.review!.id}`)}
+                          className="group/btn relative px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-yellow-500/30"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-amber-600/20 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                          <span className="relative flex items-center space-x-2">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>View Analysis</span>
+                          </span>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleRequestRerun(game.review!.id, game.id)}
+                          disabled={isRerunningReviews.has(game.review!.id) || checkingRerunData.has(game.review!.id)}
+                          className={`group/btn relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-1.5 ${
+                            (isRerunningReviews.has(game.review!.id) || checkingRerunData.has(game.review!.id))
+                              ? 'bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-700/50'
+                              : 'bg-gray-800/70 hover:bg-gray-700/70 text-gray-300 hover:text-white border border-gray-600/50 hover:border-gray-500/50'
+                          }`}
+                        >
+                          {checkingRerunData.has(game.review!.id) ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="relative">Checking...</span>
+                            </>
+                          ) : isRerunningReviews.has(game.review!.id) ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="relative">Rerunning...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3 h-3 relative" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                              </svg>
+                              <span className="relative">Rerun</span>
+                            </>
+                          )}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -775,16 +929,23 @@ const Games: React.FC = () => {
         onClose={() => {
           setModelModalOpen(false);
           setSelectedGameId(null);
+          setSelectedReviewId(null);
         }}
         onConfirm={handleModelSelection}
         userTokens={tokens}
       />
 
-      {/* Donation Modal */}
-      <DonationModal
-        isOpen={donationModalOpen}
-        onClose={() => setDonationModalOpen(false)}
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
         userTokens={tokens}
+      />
+
+      {/* Game Data Modal */}
+      <GameDataModal
+        isOpen={gameDataModalOpen}
+        onClose={() => setGameDataModalOpen(false)}
       />
     </div>
   );

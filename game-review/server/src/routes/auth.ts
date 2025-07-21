@@ -104,6 +104,42 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
       // Start transaction
       await client.query('BEGIN');
 
+      // Check if Steam ID is already linked to another user
+      const steamConflict = await client.query(`
+        SELECT u.auth0_sub, i.aoe4world_username, i.external_id, i.aoe4world_profile_id
+        FROM identities i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.provider = 'steam' 
+        AND i.external_id = $1
+        AND u.auth0_sub != $2
+      `, [steamId, req.auth?.sub]);
+
+      if (steamConflict.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ 
+          error: `This Steam ID is already linked to another account. Each Steam ID can only be linked to one account.`,
+          code: 'STEAM_ID_ALREADY_LINKED'
+        });
+      }
+
+      // Check if the AOE4World profile is already linked to another user
+      const profileConflict = await client.query(`
+        SELECT u.auth0_sub, i.aoe4world_username, i.external_id, i.aoe4world_profile_id
+        FROM identities i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.provider = 'steam' 
+        AND i.aoe4world_profile_id = $1
+        AND u.auth0_sub != $2
+      `, [aoe4worldProfile.profile_id.toString(), req.auth?.sub]);
+
+      if (profileConflict.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ 
+          error: `This AOE4World profile (${aoe4worldProfile.name}) is already linked to another account. Each profile can only be linked to one account.`,
+          code: 'AOE4WORLD_PROFILE_ALREADY_LINKED'
+        });
+      }
+
       // Upsert user
       await client.query(`
         INSERT INTO users (auth0_sub) 
@@ -115,13 +151,13 @@ router.post('/link/steam', authenticateToken, async (req: AuthRequest, res) => {
       const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
       const userId = userResult.rows[0].id;
 
-      // Delete any existing Steam identities for this user AND any other user with this Steam ID
+      // Delete any existing Steam identities for this user only
       const deleteResult = await client.query(`
         DELETE FROM identities 
-        WHERE (user_id = $1 AND provider = 'steam') OR (provider = 'steam' AND external_id = $2)
-      `, [userId, steamId]);
+        WHERE user_id = $1 AND provider = 'steam'
+      `, [userId]);
       
-      console.log(`Deleted ${deleteResult.rowCount} existing Steam identities for user ${userId} or Steam ID ${steamId}`);
+      console.log(`Deleted ${deleteResult.rowCount} existing Steam identities for user ${userId}`);
 
       // Insert new Steam identity with AOE4World data
       await client.query(`
@@ -162,16 +198,17 @@ router.post('/link/aoe4world', authenticateToken, async (req: AuthRequest, res) 
       return res.status(400).json({ error: 'AOE4World profile ID required', code: 'MISSING_PROFILE_ID' });
     }
 
-    // Validate that profileId is a number
-    const numericProfileId = parseInt(profileId);
-    if (isNaN(numericProfileId)) {
+    // Extract numeric profile ID (handle formats like "11951995" or "11951995-username")
+    const profileIdMatch = profileId.match(/^(\d+)/);
+    if (!profileIdMatch) {
       return res.status(400).json({ error: 'Invalid profile ID format', code: 'INVALID_PROFILE_ID' });
     }
+    const numericProfileId = profileIdMatch[1];
 
     // Fetch AOE4World profile
     let aoe4worldProfile;
     try {
-      aoe4worldProfile = await fetchAOE4WorldProfile(profileId);
+      aoe4worldProfile = await fetchAOE4WorldProfile(numericProfileId);
     } catch (error) {
       console.error('AOE4World fetch error:', error);
       return res.status(400).json({ 
@@ -192,6 +229,44 @@ router.post('/link/aoe4world', authenticateToken, async (req: AuthRequest, res) 
       // Start transaction
       await client.query('BEGIN');
 
+      // Check if AOE4World profile ID is already linked to another user (regardless of linking method)
+      const existingIdentity = await client.query(`
+        SELECT u.auth0_sub, i.aoe4world_username, i.external_id, i.aoe4world_profile_id
+        FROM identities i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.provider = 'steam' 
+        AND i.aoe4world_profile_id = $1
+        AND u.auth0_sub != $2
+      `, [numericProfileId, req.auth?.sub]);
+
+      // Also check if the associated Steam ID (if any) is already linked
+      if (aoe4worldProfile.steam_id) {
+        const steamConflict = await client.query(`
+          SELECT u.auth0_sub, i.aoe4world_username, i.external_id, i.aoe4world_profile_id
+          FROM identities i
+          JOIN users u ON i.user_id = u.id
+          WHERE i.provider = 'steam' 
+          AND i.external_id = $1
+          AND u.auth0_sub != $2
+        `, [aoe4worldProfile.steam_id, req.auth?.sub]);
+
+        if (steamConflict.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ 
+            error: `The Steam ID associated with this AOE4World profile is already linked to another account.`,
+            code: 'STEAM_ID_ALREADY_LINKED'
+          });
+        }
+      }
+
+      if (existingIdentity.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ 
+          error: `This AOE4World profile is already linked to another account. Each profile can only be linked to one account.`,
+          code: 'AOE4WORLD_PROFILE_ALREADY_LINKED'
+        });
+      }
+
       // Upsert user
       await client.query(`
         INSERT INTO users (auth0_sub) 
@@ -203,19 +278,19 @@ router.post('/link/aoe4world', authenticateToken, async (req: AuthRequest, res) 
       const userResult = await client.query('SELECT id FROM users WHERE auth0_sub = $1', [req.auth?.sub]);
       const userId = userResult.rows[0].id;
 
-      // Delete any existing Steam identities for this user AND any other user with this profile ID
+      // Delete any existing Steam identities for this user only
       const deleteResult = await client.query(`
         DELETE FROM identities 
-        WHERE (user_id = $1 AND provider = 'steam') OR (provider = 'steam' AND aoe4world_profile_id = $2)
-      `, [userId, profileId]);
+        WHERE user_id = $1 AND provider = 'steam'
+      `, [userId]);
       
-      console.log(`Deleted ${deleteResult.rowCount} existing identities for user ${userId} or profile ID ${profileId}`);
+      console.log(`Deleted ${deleteResult.rowCount} existing identities for user ${userId}`);
 
       // Insert new Steam identity with AOE4World data (using profile ID as external_id)
       await client.query(`
         INSERT INTO identities (user_id, provider, external_id, aoe4world_profile_id, aoe4world_username) 
         VALUES ($1, 'steam', $2, $3, $4)
-      `, [userId, aoe4worldProfile.steam_id || profileId, profileId, aoe4worldProfile.name]);
+      `, [userId, aoe4worldProfile.steam_id || numericProfileId, numericProfileId, aoe4worldProfile.name]);
 
       // Commit transaction
       await client.query('COMMIT');

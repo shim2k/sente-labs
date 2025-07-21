@@ -94,10 +94,29 @@ const Settings: React.FC = () => {
         // Refresh identities to update UI
         fetchIdentities();
       } else {
-        setMessage({ type: 'error', text: response.data?.error || 'Failed to link Steam account' });
+        const errorCode = response.data?.code;
+        let errorMessage = response?.error || 'Failed to link Steam account';
+        
+        // Provide more specific error messages
+        if (errorCode === 'STEAM_ID_ALREADY_LINKED') {
+          errorMessage = 'This Steam ID is already linked to another account. Each Steam ID can only be linked to one account.';
+        }
+        
+        setMessage({ type: 'error', text: errorMessage });
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } catch (error: any) {
+      console.error('Steam linking error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      
+      if (error.response?.data?.error) {
+        // Use the specific error message from the API
+        setMessage({ type: 'error', text: error.response.data.error });
+      } else if (error.response?.status === 409) {
+        setMessage({ type: 'error', text: 'This account is already linked to another user.' });
+      } else {
+        setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      }
     } finally {
       setIsLinkingSteam(false);
     }
@@ -131,10 +150,29 @@ const Settings: React.FC = () => {
         // Refresh identities to update UI
         fetchIdentities();
       } else {
-        setMessage({ type: 'error', text: response.data?.error || 'Failed to link AOE4World profile' });
+        const errorCode = response.data?.code;
+        let errorMessage = response?.error || 'Failed to link AOE4World profile';
+        
+        // Provide more specific error messages
+        if (errorCode === 'AOE4WORLD_PROFILE_ALREADY_LINKED') {
+          errorMessage = 'This AOE4World profile is already linked to another account. Each profile can only be linked to one account.';
+        }
+        
+        setMessage({ type: 'error', text: errorMessage });
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } catch (error: any) {
+      console.error('AOE4World linking error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      
+      if (error.response?.data?.error) {
+        // Use the specific error message from the API
+        setMessage({ type: 'error', text: error.response.data.error });
+      } else if (error.response?.status === 409) {
+        setMessage({ type: 'error', text: 'This profile is already linked to another user.' });
+      } else {
+        setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      }
     } finally {
       setIsLinkingAOE4World(false);
     }

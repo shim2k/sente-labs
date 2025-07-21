@@ -24,9 +24,13 @@ router.get('/games', authenticateToken, async (req: AuthRequest, res) => {
       const userId = userResult.rows[0].id;
       
       let query = `
-        SELECT g.*, r.id as review_id, r.summary_md, g.players
+        SELECT g.*, latest_review.review_id, latest_review.summary_md, g.players
         FROM games g
-        LEFT JOIN reviews r ON g.db_id = r.game_db_id
+        LEFT JOIN (
+          SELECT r.game_db_id, r.id as review_id, r.summary_md,
+                 ROW_NUMBER() OVER (PARTITION BY r.game_db_id ORDER BY r.generated_at DESC) as rn
+          FROM reviews r
+        ) latest_review ON g.db_id = latest_review.game_db_id AND latest_review.rn = 1
         WHERE g.user_id = $1
       `;
       

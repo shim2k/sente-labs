@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import DonationModal from './DonationModal';
+import PaymentModal from './PaymentModal';
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -10,7 +10,7 @@ interface TopBarProps {
 const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const { user, logout, tokens } = useAuth();
   const navigate = useNavigate();
-  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   
   // Extract user's name from Auth0 user object
   const userName = user?.name || user?.nickname || user?.email?.split('@')[0] || 'User';
@@ -106,7 +106,7 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
 
           {/* Get More Tokens Button */}
           <button
-            onClick={() => setIsDonationModalOpen(true)}
+            onClick={() => setIsPaymentModalOpen(true)}
             className="group relative px-2 sm:px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg border border-green-500/30 shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
             <div className="flex items-center space-x-1 sm:space-x-2">
@@ -191,10 +191,10 @@ const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
         `}
       </style>
       
-      {/* Donation Modal */}
-      <DonationModal 
-        isOpen={isDonationModalOpen}
-        onClose={() => setIsDonationModalOpen(false)}
+      {/* Payment Modal */}
+      <PaymentModal 
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
         userTokens={tokens}
       />
     </div>

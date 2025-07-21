@@ -1,16 +1,79 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { TOKEN_PACKAGES, TokenPackage } from '../constants/tokenPackages';
+import { initializePaddle, Paddle } from '@paddle/paddle-js';
+import { PADDLE_CONFIG, validatePaddleConfig } from '../config/paddle';
 
 const Pricing: React.FC = () => {
   const { isAuthenticated, user, tokens, login } = useAuth();
   const navigate = useNavigate();
+  const [paddle, setPaddle] = useState<Paddle | null>(null);
+  const [isLoading, setIsLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handlePurchase = (packageData: TokenPackage) => {
-    // Open PayPal donation page in new tab
-    const paypalUrl = `https://www.paypal.com/donate/?hosted_button_id=78ZLBS7LHKRHS&amount=${packageData.price}`;
-    window.open(paypalUrl, '_blank');
+  useEffect(() => {
+    const initPaddle = async () => {
+      if (!validatePaddleConfig()) {
+        setError('Payment system is not properly configured');
+        return;
+      }
+
+      try {
+        const paddleInstance = await initializePaddle({
+          environment: PADDLE_CONFIG.environment,
+          token: PADDLE_CONFIG.token,
+        });
+        if (paddleInstance) {
+          setPaddle(paddleInstance);
+        }
+      } catch (err) {
+        console.error('Failed to initialize Paddle:', err);
+        setError('Failed to initialize payment system');
+      }
+    };
+
+    initPaddle();
+  }, []);
+
+  const handlePurchase = async (packageData: TokenPackage) => {
+    if (!paddle || !packageData.paddleProductId) {
+      setError('Payment system not ready');
+      return;
+    }
+
+    if (!user?.email) {
+      setError('User email required for purchase');
+      return;
+    }
+
+    setIsLoading(packageData.id);
+    setError(null);
+
+    try {
+      await paddle.Checkout.open({
+        items: [
+          {
+            priceId: packageData.paddleProductId,
+            quantity: 1
+          }
+        ],
+        customer: {
+          email: user.email,
+        },
+        customData: {
+          userId: user.sub,
+          tokenAmount: packageData.tokens.toString(),
+          packageId: packageData.id
+        },
+        settings: PADDLE_CONFIG.checkoutSettings,
+      });
+    } catch (err) {
+      console.error('Payment failed:', err);
+      setError('Payment failed. Please try again.');
+    } finally {
+      setIsLoading(null);
+    }
   };
 
   const handleSignInToPurchase = () => {
@@ -52,6 +115,30 @@ const Pricing: React.FC = () => {
           )}
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-8 mx-auto max-w-2xl">
+            <div className="bg-red-900/50 border border-red-500/50 rounded-lg p-4 flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-red-200 text-sm font-medium">{error}</p>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Token Packages */}
         <div className="grid md:grid-cols-3 gap-8 mb-16">
           {TOKEN_PACKAGES.map((pkg) => (
@@ -90,13 +177,23 @@ const Pricing: React.FC = () => {
                 {isAuthenticated ? (
                   <button
                     onClick={() => handlePurchase(pkg)}
-                    className={`group relative w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 ${
+                    disabled={isLoading === pkg.id || !paddle}
+                    className={`group relative w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
                       pkg.popular
                         ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg hover:shadow-blue-500/30'
                         : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg hover:shadow-blue-500/30'
                     }`}
                   >
-                    <span className="relative">Purchase {pkg.value}</span>
+                    <div className="flex items-center justify-center space-x-2">
+                      {isLoading === pkg.id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span className="relative">Processing...</span>
+                        </>
+                      ) : (
+                        <span className="relative">Purchase {pkg.value}</span>
+                      )}
+                    </div>
                     <div className="absolute inset-0 bg-white/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                   </button>
                 ) : (
@@ -214,9 +311,9 @@ const Pricing: React.FC = () => {
             <div className="flex-1">
               <h3 className="text-xl font-semibold text-blue-300 mb-4">How It Works</h3>
               <div className="space-y-3 text-blue-200">
-                <p><strong>Step 1:</strong> Purchase tokens using PayPal</p>
-                <p><strong>Step 2:</strong> Add your AOE4 username in the PayPal donation notes/message field</p>
-                <p><strong>Step 3:</strong> Tokens will be added to your account within 24 hours (usually much faster)</p>
+                <p><strong>Step 1:</strong> Choose a token package above</p>
+                <p><strong>Step 2:</strong> Complete secure payment via credit card, PayPal, or other supported methods</p>
+                <p><strong>Step 3:</strong> Tokens are added to your account immediately after successful payment</p>
                 <p><strong>Step 4:</strong> Use tokens to generate AI-powered reviews of your matches</p>
               </div>
             </div>
@@ -233,7 +330,7 @@ const Pricing: React.FC = () => {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white mb-3">How long does it take to get tokens?</h3>
-              <p className="text-gray-400">Tokens are usually added within a few hours, but can take up to 24 hours in rare cases.</p>
+              <p className="text-gray-400">Tokens are added to your account immediately after successful payment.</p>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white mb-3">Do tokens expire?</h3>
